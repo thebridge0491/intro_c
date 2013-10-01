@@ -1,0 +1,28 @@
+# Uninstall Targets CMake script.
+
+set(MANIFEST @CMAKE_BINARY_DIR@/install_manifest.txt)
+set(CMAKE_COMMAND @CMAKE_COMMAND@)
+
+if(NOT EXISTS ${MANIFEST})
+	message(WARNING "Cannot find install manifest: ${MANIFEST}")
+endif()
+
+file(READ ${MANIFEST} installfiles)
+string(REGEX REPLACE "\n" ";" installfiles "${installfiles}")
+foreach(fileX IN ITEMS ${installfiles})
+	if(IS_DIRECTORY ${fileX})
+		message(STATUS "Uninstalling ${fileX}")
+		execute_process(COMMAND ${CMAKE_COMMAND} -E remove_directory ${fileX}
+			OUTPUT_VARIABLE rm_out RESULT_VARIABLE rm_retval)
+		if(NOT ${rm_retval} STREQUAL 0 OR EXISTS ${fileX})
+			message(WARNING "Problem removing ${fileX}")
+		endif()
+	elseif(IS_SYMLINK ${fileX} OR EXISTS ${fileX})
+		message(STATUS "Uninstalling ${fileX}")
+		execute_process(COMMAND ${CMAKE_COMMAND} -E remove ${fileX}
+			OUTPUT_VARIABLE rm_out RESULT_VARIABLE rm_retval)
+		if(NOT ${rm_retval} STREQUAL 0 OR EXISTS ${fileX})
+			message(WARNING "Problem removing ${fileX}")
+		endif()
+	endif()
+endforeach(fileX)

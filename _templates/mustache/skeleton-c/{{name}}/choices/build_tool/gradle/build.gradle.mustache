@@ -1,0 +1,215 @@
+plugins {				// Native: c cpp objective-c assembler
+	id 'c'				// add support for Native C
+	id 'assembler'		// add support for Native ASM
+	id TestingModelBasePlugin	// needed to run task customCheck
+	id 'distribution'	// add support to archive (tar, zip) distribution
+}
+
+description = '{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}'
+//gradle.startParameter.offline = true
+
+//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')
+//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.hgignore')
+
+version = '{{version}}{{^version}}0.1.0{{/version}}'
+
+tasks.withType(Tar) {
+	description description + " [-Ptarext='${tarext}']"
+	switch (tarext) {
+		case 'tar': compression = Compression.NONE ; extension = 'tar'
+			break
+		case 'tar.bz2': compression = Compression.BZIP2 ; extension = 'tar.bz2'
+			break
+		default: compression = Compression.GZIP ; extension = 'tar.gz'
+			break
+	}
+}
+
+assembleDist {
+	description description + " [-Ptarext='${tarext}']"
+}
+
+distributions {
+	ant.defaultexcludes remove: '**/.hgignore'
+	ant.defaultexcludes remove: '**/.gitignore'
+	main { baseName = project.name
+		contents {
+			//from('.') { include '**/*.gradle', '**/src/' }
+			from('.') { exclude (new File('exclude.lst') as String[])
+				exclude '**/build/*', '**/gradle/*' }
+		}
+	}
+}
+
+//ext.toptslist = Eval.me(testOpts).flatten()	// -PtestOpts="['-h', '-s']"
+												// -PtestOpts=-h,s
+ext.toptslist = '' == testOpts ? [] : testOpts.split(',').flatten()
+ext.link_libs = 'libpcre glib-2.0'
+{{#executable}}
+ext.argslist = appArgs.split(',').flatten()     // -PappArgs=-d,s
+ext.link_libs = "${link_libs} log4c yaml-0.1 yajl json-c"
+{{/executable}}
+
+ext.exec_output = { cmdLn ->
+	def res0 = new ByteArrayOutputStream()
+	exec { commandLine cmdLn.split() ; standardOutput = res0 }
+	return res0.toString()
+}
+
+ext.proc_output = { cmdLn ->
+	def (errbuf, proc) = [new StringBuffer(), cmdLn.execute()]
+	proc.consumeProcessErrorStream(errbuf) ; println errbuf.toString()
+	return proc.text
+}
+
+if ((new File("${projectDir}/targets.gradle")).exists())
+	apply from: "${projectDir}/targets.gradle"
+
+model {
+	//buildTypes { release ; debug }
+	platforms {
+		x86_64 { architecture 'amd64' }
+		//x86 { architecture 'x86' }
+	}
+	toolChains {
+		clang(Clang) {
+			eachPlatform {
+				path '/usr/bin'
+				cCompiler.executable = 'cc'
+				linker.executable = 'cc'
+			}
+		}
+	}
+	components {
+		{{#executable}}
+		"${project.name}"(NativeExecutableSpec) {
+            targetPlatform 'x86_64'
+			sources {
+				c {
+					source { srcDir 'src' ; include '**/*.c' }
+					exportedHeaders { srcDir 'src' ; include '**/*.h' }
+				}
+			}
+		}
+		{{/executable}}
+		{{^executable}}
+		"${project.name}"(NativeLibrarySpec) {
+            targetPlatform 'x86_64'
+			sources {
+				c {
+					source { srcDir 'src' ; include '**/*.c' }
+					exportedHeaders { srcDir 'include' ; include '**/*.h' }
+				}
+				//assembler {
+				//	source { srcDir '${buildDir}' ; include '*.s' }
+				//}
+			}
+		}
+		{{/executable}}
+		if ('ON' == buildtest) {
+			ts_main(NativeExecutableSpec) {
+				targetPlatform 'x86_64'
+				sources {
+					c.source { srcDir 'tests' ; include '**/*.c' }
+														// shared | static
+					{{#executable}}//{{/executable}}c.lib library: "${project.name}", linkage: 'shared'
+				}
+			}
+        }
+	}
+	binaries {
+		all {
+			cCompiler.args "-Wall -pedantic -m64 -I${projectDir}/{{#executable}}src{{/executable}}{{^executable}}include{{/executable}}".split()
+			linker.args "-Wl,-rpath,\'$ORIGIN/\'".split()
+			if ('1' == DEBUG) { //buildTypes.debug {
+				cCompiler.args '-UNDEBUG -g3 -O0 --coverage'.split()
+				cCompiler.define 'DEBUG'
+				linker.args '--coverage'.split()
+			} else { //buildTypes.release {
+				cCompiler.args '-UDEBUG -O3'.split()
+				cCompiler.define 'NDEBUG'
+			}
+			checkedBy $.tasks.customCheck
+		}
+		{{#executable}}
+		"${project.name}Executable" {
+			cCompiler.args ext.exec_output("pkg-config --cflags ${link_libs}").split()
+			//cCompiler.define ''
+			linker.args ext.exec_output("pkg-config --libs ${link_libs}").split()
+		}
+		"ts_mainExecutable" {
+			cCompiler.args ext.exec_output('pkg-config --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}').split()
+			//cCompiler.define ''
+			linker.args ext.exec_output('pkg-config --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}').split()
+		}
+		{{/executable}}
+		{{^executable}}
+		withType(NativeLibraryBinarySpec) {
+			cCompiler.args ext.exec_output("pkg-config --cflags ${link_libs}").split()
+			//cCompiler.define ''
+			linker.args ext.exec_output("pkg-config --libs ${link_libs}").split()
+		}
+		withType(NativeExecutableBinarySpec) {
+			cCompiler.args ext.exec_output('pkg-config --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}').split()
+			//cCompiler.define ''
+			linker.args ext.exec_output('pkg-config --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}').split()
+		}
+		{{/executable}}
+	}
+}
+
+def wrap_cmd(wrapper, cmd, args) {
+	exec { workingDir buildDir ; ignoreExitValue true
+		environment 'LD_LIBRARY_PATH', "${System.env.LD_LIBRARY_PATH}:${buildDir}/lib"
+		commandLine [wrapper, cmd] + args
+	}
+}
+
+task customCheck(dependsOn: assemble) {
+	description "Run check [-PDEBUG='${DEBUG}' -PtestOpts='${testOpts}']"
+	if ('ON' == buildtest) {
+		doLast {
+			def taskTest = tasks.findByName("linkTs_mainExecutable")
+			copy { into buildDir
+				from projectDir ; include 'resources/' }
+			wrap_cmd('', taskTest.binaryFile.orNull, toptslist)
+		}
+	}
+}
+
+{{#executable}}
+task run(dependsOn: assemble) {
+	description "Run main [-PDEBUG='${DEBUG}' -PappArgs='${appArgs}]"
+	doLast { 
+		def taskBin = 
+			tasks.findByName("link${project.name.capitalize()}Executable")
+		copy { into buildDir
+			from projectDir ; include 'resources/' }
+		wrap_cmd('', taskBin.binaryFile.orNull, argslist) }
+}
+
+task debug(dependsOn: assemble) {
+	description "Debug main [-PDEBUG='${DEBUG}' -PappArgs='${appArgs}]"
+	def debugger = 'ddd --gdb'
+	doLast { 
+		def taskBin = 
+			tasks.findByName("link${project.name.capitalize()}Executable")
+		wrap_cmd(debugger, taskBin.binaryFile.orNull, argslist) }
+}
+
+task valgrind(dependsOn: assemble) {
+	description "Valgrind main [-PDEBUG='${DEBUG}']"
+	def valgrind = 'valgrind --verbose --tool=memcheck'
+	doLast { 
+		def taskBin = 
+			tasks.findByName("link${project.name.capitalize()}Executable")
+		wrap_cmd(valgrind, taskBin.binaryFile.orNull, []) }
+}
+{{/executable}}
+
+//task classicffi_asm_s() {
+//	doLast {
+//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o ${buildDir}/classic_asm.s ${projectDir}/src/**/classic_asm.c.bak", [])
+//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o ${buildDir}/classic_f90.s ${projectDir}/src/**/classic_f90.f90.bak", [])
+//	}
+//}

@@ -1,0 +1,118 @@
+
+def create_symlink(target_str, link_str) {
+	//ant.symlink(resource: target_str, link: link_str)
+	def (target, link) = [new File(target_str), new File(link_str)]
+	if (link.exists())
+		delete link
+	if (target.exists())
+		java.nio.file.Files.createSymbolicLink(link.toPath(), target.toPath())
+}
+
+task pre_install {
+	description 'Perform preliminary install steps'
+	def osName = System.getProperty('os.name').toLowerCase()
+	def ver_major = project.version.split(/\./)[0]
+	doLast {
+		"${buildDir}/bin ${buildDir}/lib/pkgconfig ${buildDir}/share/doc/${project.name}".split().each { mkdir it }
+		def taskBin = 
+			tasks.findByName("link${project.name.capitalize()}Executable")
+		def taskLibStat = 
+			tasks.findByName("create${project.name.capitalize()}StaticLibrary")
+		def taskLibDyn = 
+			tasks.findByName("link${project.name.capitalize()}SharedLibrary")
+		
+		if (taskBin)
+			copy { into "${buildDir}/bin" ; from taskBin.binaryFile.orNull }
+		if (taskLibStat)
+			copy { into "${buildDir}/lib"
+				from taskLibStat.outputs.files.files[0] }
+		if (taskLibDyn)
+			if (osName.contains('darwin') || osName.contains('mac')) {
+				def target = "lib${project.name}.${project.version}.dylib"
+				copy { into "${buildDir}/lib"
+					from taskLibDyn.binaryFile.orNull
+					rename { fNm -> target } }
+				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.dylib")
+				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.${ver_major}.dylib")
+			} else {
+				def target = "lib${project.name}.so.${project.version}"
+				copy { into "${buildDir}/lib"
+					from taskLibDyn.binaryFile.orNull
+					rename { fNm -> target } }
+				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.so")
+				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.so.${ver_major}")
+			}
+	}
+}
+
+assemble.finalizedBy([pre_install])
+
+task uninstall(dependsOn: assemble) {
+	description "Uninstall artifacts [-Pprefix='${prefix}']"
+	def destdir = System.env.DESTDIR ? System.env.DESTDIR : ''
+	def installfiles = fileTree(dir: "${destdir}${prefix}",
+		includes: ["bin/${project.name}", "lib/lib${project.name}*.*",
+		"lib/pkgconfig/${project.name}.pc"]).files + ["${destdir}${prefix}/share/doc/${project.name}"]
+		
+	doLast {
+		//delete installfiles
+		def res = ''
+		installfiles.each { 
+			println "Remove ${it}? "
+			while ('\n' == (res = (char)System.in.read()))
+				;
+			if ('y' == res) {
+				println ".. removing ${it}" ; delete it
+			}
+		}
+	}
+}
+
+task config_pcfile {
+	description "Configure pkg-config file [-Pprefix='${prefix}']"
+	def cmdLn = "sed s|@prefix@|${prefix}| " + 
+		"${projectDir}/src/${project.name}.pc.in"
+	doLast {
+		if ((new File("${projectDir}/src/${project.name}.pc.in")).exists())
+			exec { ignoreExitValue true
+				commandLine cmdLn.split()
+				standardOutput = new FileOutputStream("${buildDir}/lib/pkgconfig/${project.name}.pc")
+			}
+	}
+}
+
+task install(dependsOn: [assemble, config_pcfile]) {
+	description "Install artifacts [-Pprefix='${prefix}']"
+	def destdir = System.env.DESTDIR ? System.env.DESTDIR : ''
+	doLast {
+		copy { into "${destdir}${prefix}"
+			from projectDir ; include 'include/'
+			from buildDir { include 'bin/' ; include 'lib/'
+				include 'share/' }
+		}
+	}
+}
+
+task doc(type: Exec, dependsOn: assemble) { workingDir "${buildDir}"
+	description 'Generate API documentation'
+	commandLine "doxygen ${projectDir}/Doxyfile_c.txt".split()
+}
+
+task lint(type: Exec, dependsOn: assemble) {
+	description 'Lint check'
+	commandLine "cppcheck --enable=all --report-progress --quiet --force --std=c99 --std=posix -Iinclude -Isrc src".split()
+}
+
+task cover(type: Exec, dependsOn: assemble) {
+	description 'Coverage check'
+	commandLine "lcov --capture -d ${buildDir} -o ${buildDir}/.coverage --gcov-tool ${projectDir}/llvm-gcov.sh".split()
+}
+
+task report(type: Exec, dependsOn: cover) {
+	description 'Report coverage'
+	commandLine "genhtml -o ${buildDir}/cov ${buildDir}/.coverage".split()
+}

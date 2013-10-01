@@ -1,0 +1,15 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: Intro_c-Intro
+Description: Main app sub-package for C Intro examples project.
+URL: https://bitbucket.org/thebridge0491/intro_c
+Version: 0.1.0
+Conflicts: 
+Requires.private: libpcre glib-2.0
+Libs.private: 
+Requires: 
+Cflags: -I${includedir}
+Libs: -L${libdir} -lintro_c-intro

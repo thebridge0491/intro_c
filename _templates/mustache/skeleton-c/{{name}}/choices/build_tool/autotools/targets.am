@@ -1,0 +1,68 @@
+# Targets automake script.
+AM_CPPFLAGS = -Iinclude -I$(srcdir)/src
+AM_LDFLAGS = -Wl,-rpath,'$$ORIGIN/' -L.libs
+AM_CFLAGS = -Wall -pedantic -std=c99 -m64
+ARFLAGS = rvcs
+
+if !DARWIN
+AM_LDFLAGS += -Wl,--enable-new-dtags
+endif
+
+if DEBUG
+AM_CPPFLAGS += -DDEBUG -UNDEBUG
+AM_LDFLAGS += --coverage
+AM_CFLAGS += -g3 -O0 --coverage
+else
+AM_CPPFLAGS += -DNDEBUG -UDEBUG
+AM_CFLAGS += -O3
+endif
+
+GZIP_ENV = --best --force
+TAROPTS = --format=posix --dereference --exclude-from=exclude.lst
+ZIPOPTS = -9 -q --exclude @exclude.lst -r
+am__tar = tar $(TAROPTS) -chf - "$$tardir"
+##EXTRA_DIST = exclude.lst bootstrap.sh configure.ac Makefile.am targets.am
+
+##LINT = cppcheck --enable=information --report-progress --quiet --force --suppress=missingIncludeSystem --std=c99 --std=posix -Iinclude -I$(srcdir)/src
+LINT = cppcheck --enable=all --report-progress --quiet --force --std=c99 --std=posix -Iinclude -I$(srcdir)/src
+
+.PHONY : help doc lint report
+.DEFAULT_GOAL = help
+
+all-local :
+	-@mkdir -p .libs share/doc/$(PACKAGE_TARNAME) ; cp -fR $(srcdir)/include .
+help : 
+	@echo "       ../configure [OPTS=??]"
+	@echo "Usage: $(MAKE) [target]"
+	-@for fileX in $(MAKEFILE_LIST) `if [ -z "$(MAKEFILE_LIST)" ] ; then echo Makefile ; fi` ; do \
+		grep -ve '^[A-Z]' $$fileX | awk '/^[^.%][-A-Za-z0-9_]+[ ]*:.*$$/ { print "...", substr($$1, 1, length($$1)) }' | sort ; \
+	done
+clean-local : 
+	-rm -fr share/doc $(distdir).*
+	-mkdir -p .libs share/doc/$(PACKAGE_TARNAME)
+install-data-hook :
+	cp -fR share/* $(DESTDIR)$(datadir)/
+uninstall-hook :
+	rm -fr $(DESTDIR)$(datadir)/doc/$(PACKAGE_TARNAME)
+dist-hook:
+	-@cp -f $(srcdir)/exclude.lst .
+#	-@(cd $(srcdir) ; zip $(ZIPOPTS) - .) | unzip -od $(distdir) -
+	-@tar $(TAROPTS) -C $(srcdir) -cf - . | tar -xpf - -C $(distdir)
+dist-zip : distdir
+	-rm -f $(distdir).zip
+	zip $(ZIPOPTS) $(distdir).zip $(distdir)
+	$(am__post_remove_distdir)
+
+html-local : 
+	-cd ${srcdir)/build ; $(DOXYGEN) ../Doxyfile_*.txt
+	-rm -fr share/doc/$(PACKAGE_TARNAME)/html
+	-mv $(srcdir)/build/html share/doc/$(PACKAGE_TARNAME)/html
+doc : html-local
+lint : 
+	-cppcheck $(LINTOPTS) $(srcdir)/src
+report : 
+#	# read coverage data w/ [llvm-cov] gcov -f -b -n *.gcda
+#	find . -type f -name '*.gcda' -exec llvm-cov -f -b --no-output {} \;
+#	# read coverage data w/ lcov -c -d . -o .coverage ... *.gcda
+	-lcov --capture -d . -o .coverage --gcov-tool $(srcdir)/llvm-gcov.sh
+	-genhtml -o cov .coverage

@@ -1,0 +1,70 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <float.h>
+#include <CUnit/Basic.h>
+
+#include "{{parent}}{{^parent}}intro_c{{/parent}}/classic_asm.h"
+#include "{{parent}}{{^parent}}intro_c{{/parent}}/classic_f90.h"
+#include "{{parent}}{{^parent}}intro_c{{/parent}}/classic_c.h"
+
+static bool in_epsilon(float tolerance, const void *a, const void *b) {
+	float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
+	//return (x - delta) <= y && (x + delta) >= y;
+	return !((x + delta) < y) && !((y + delta) < x);
+}
+
+struct func_info {void (*func)(void); const char *name;
+};
+
+/**CUnit Test Suite */
+int init_classic(void) {
+    printf("\n###setup Suite###");
+    return 0;
+}
+
+int clean_classic(void) {
+    printf("\n###teardown Suite###\n");
+    return 0;
+}
+
+static void test_fact(void) {
+    unsigned long (*funcs[])(unsigned int n) = {fact_asm_i, fact_asm_lp,
+		fact_f90_i, fact_f90_lp, fact_i, fact_lp};
+    int len_funcs = sizeof(funcs) / sizeof(funcs[0]);
+    
+    for (int i = 0; len_funcs > i; ++i)
+        CU_ASSERT_EQUAL(120L, funcs[i](5));
+}
+
+static void test_expt(void) {
+    float (*funcs[])(float b, float n) = {expt_asm_i, expt_asm_lp, expt_f90_i, 
+    	expt_f90_lp, expt_i, expt_lp};
+    int len_funcs = sizeof(funcs) / sizeof(funcs[0]);
+    
+    float exp = powf(11.0f, 6.0f);
+    
+    for (int i = 0; len_funcs > i; ++i) {
+    	float res = funcs[i](11.0f, 6.0f);
+    	//CU_ASSERT_DOUBLE_EQUAL(exp, res, 0.001f * exp);
+        CU_ASSERT(in_epsilon(0.001f * exp, &exp, &res));
+    }
+}
+
+
+void* tc_classic_suite(CU_pSuite pSuite) {
+    struct func_info func_infos[] = {
+		{test_fact, "test_fact"}, {test_expt, "test_expt"}
+	};
+    int arrLen = sizeof(func_infos) / sizeof(func_infos[0]);
+      
+    /* Add the tests to the suite */
+    for (int i = 0; arrLen > i; ++i) {
+        if (NULL == CU_add_test(pSuite, func_infos[i].name, 
+                func_infos[i].func))
+            return NULL;
+    }
+    return pSuite;
+}
+

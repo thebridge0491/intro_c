@@ -1,0 +1,39 @@
+plugins {
+    id 'distribution'	// add support to archive (tar, zip) distribution
+}
+
+rootProject.description = '{{parentdescription}}{{^parentdescription}}Multi-package project Intro examples for C.{{/parentdescription}}'
+//gradle.startParameter.offline = true
+
+//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')
+//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.hgignore')
+
+version = '0.1.0'
+
+tasks.withType(Tar) {
+	description description + " [-Ptarext='${tarext}']"
+	switch (tarext) {
+		case 'tar': compression = Compression.NONE ; extension = 'tar'
+			break
+		case 'tar.bz2': compression = Compression.BZIP2 ; extension = 'tar.bz2'
+			break
+		default: compression = Compression.GZIP ; extension = 'tar.gz'
+			break
+	}
+}
+
+assembleDist {
+	description description + " [-Ptarext='${tarext}']"
+}
+
+distributions {
+	ant.defaultexcludes remove: '**/.hgignore'
+	ant.defaultexcludes remove: '**/.gitignore'
+	main { baseName = rootProject.name
+		contents {
+			//from '.' { include '**/*.gradle', '**/src/' }
+			from '.' { exclude (new File('exclude.lst') as String[])
+				exclude '**/build/*', '**/.gradle/*' }
+		}
+	}
+}

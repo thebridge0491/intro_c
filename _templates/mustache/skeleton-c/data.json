@@ -1,0 +1,37 @@
+{
+  "groupid": false,
+  "category": false,
+  "parent": "intro_c",
+  "parentdescription": "Multi-package project Intro examples for C.",
+  "project": "util",
+  "description": "Utilites sub-package for C Intro examples project.",
+  "version": "0.1.0",
+  "separator": "-",
+  "joiner": "-",
+  "parentregex": "^[a-z][-_a-z0-9]+$",
+  "projectregex": "^[a-z][_a-z0-9]+$",
+  
+  "repohost": "bitbucket.org",
+  "repoacct": "imcomputer",
+  "date": "2013-10-01",
+  
+  "readmeext": ".rst",
+  "license": "Apache-2.0",
+  "buildtool": "cmake",
+  "testfrwk": "check",
+  
+  "ffilib": "none",
+  
+  "skeletondir": "Templates/mustache/skeleton-c",
+  
+  "_choices": {
+    "readmeext": [".rst", ".md", ".adoc"],
+    "license": ["Apache-2.0", "MIT", "BSD-3-Clause", "GPL-3.0+", "ISC", 
+      "Unlicense", "Not open source"],
+    "buildtool": ["cmake", "autotools", "make", "scons", "rake", "premake", 
+      "gradle"],
+    "testfrwk": ["check", "cunit"],
+    "executable": [false, "yes"],
+    "ffilib": ["none", "native"]
+  }
+}

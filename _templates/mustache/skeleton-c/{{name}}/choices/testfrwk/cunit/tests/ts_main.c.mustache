@@ -1,0 +1,59 @@
+#include <stdio.h>
+#include <stdlib.h>
+//#include <unistd.h>
+#include <CUnit/Basic.h>
+#include <CUnit/Automated.h>
+#include <CUnit/Console.h>
+
+#include "tc_new.h"
+//#include "tc_classic.h"
+
+struct test_info {const char *name; int (*init)(void); int (*clean)(void);
+    void *(*suite)(CU_pSuite);
+};
+
+struct test_info test_infos[] = {
+    {"tc_new", init_new, clean_new, tc_new_suite}
+    //, {"tc_classic", init_classic, clean_classic, tc_classic_suite}
+};
+
+int main(int argc, char **argv) {
+    int arrLen = sizeof(test_infos) / sizeof(test_infos[0]);
+    CU_pSuite pSuites[arrLen];
+    void *(*pSuiteTests[arrLen])(CU_pSuite);
+      
+    /* Initialize the CUnit test registry */
+    if (CUE_SUCCESS != CU_initialize_registry())
+        return CU_get_error();
+      
+    /* Add suite(s) to the registry */
+    for (int i = 0; arrLen > i; ++i) {
+        pSuites[i] = CU_add_suite(test_infos[i].name, test_infos[i].init, 
+                test_infos[i].clean);
+        pSuiteTests[i] = test_infos[i].suite;
+    }
+    for (int i = 0; arrLen > i; ++i) {
+        if (NULL == pSuites[i] || NULL == pSuiteTests[i](pSuites[i])) {
+            CU_cleanup_registry();
+            return CU_get_error();
+        }
+    }    
+      
+    /* Run all test(s) using the CUnit Basic interface */
+    CU_basic_set_mode(CU_BRM_VERBOSE);
+    CU_basic_run_tests();
+    CU_basic_show_failures(CU_get_failure_list());
+    printf("\n");
+    
+    /* Run all test(s) using the CUnit Automated interface */
+    //CU_set_output_filename("build/CUnitAutomated");
+    //CU_automated_run_tests();
+    //CU_list_tests_to_file();
+    
+    /* Run all test(s) using the CUnit Console interface */
+    //CU_console_run_tests();
+    
+    CU_cleanup_registry();
+    return CU_get_error();
+}
+

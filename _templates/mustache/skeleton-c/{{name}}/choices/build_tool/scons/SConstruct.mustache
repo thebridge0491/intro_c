@@ -1,0 +1,204 @@
+# Single package SConstruct script.
+import os
+
+topdir = Dir("#").abspath
+subdir = os.path.relpath(Dir(".").abspath, topdir)
+
+parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
+proj_name = "{{name}}{{^name}}intro_c-util{{/name}}"
+version = "{{version}}{{^version}}0.1.0{{/version}}"
+
+try:
+	Import("*")
+	ctx_default = ctx_top.Clone()
+except NameError:
+	vars = Variables()
+	AddOption('--prefix', dest='prefix', nargs=1, type='string', action='store',
+		default='/usr/local', help='Install prefix (default: /usr/local)',
+		#metavar='DIR'
+		)
+	#AddOption('--buildtest', dest='buildtest', nargs=1, type='string', 
+	#	action='store', default='ON', help='Build test with all (default: ON)')
+	vars.AddVariables(
+		EnumVariable('DEBUG', 'Build with debug symbols & coverage, if DEBUG=1',
+			'0', allowed_values=['0', '1']),
+		EnumVariable('BUILDTEST', 'Build test with all', 'ON', 
+			allowed_values=['ON', 'OFF']),
+		ListVariable('TOOLS', 'Archive distribution tools', ['tar', 'zip'],
+			['tar', 'zip']),
+		EnumVariable('TARSUFFIX', 'Tar archive suffix (for compression)', 'tar.gz',
+			allowed_values=['tar.gz', 'tar.bz2', 'tar.xz', 'tar.7z', 'tar'])
+	)
+	ctx_default = Environment(ENV=os.environ, tools=["default", "packaging"],
+		CC=ARGUMENTS.get("CC", "clang"), CXX=ARGUMENTS.get("CXX", "clang++"),
+		ARFLAGS="rvcs", LINKFLAGS=["-Wl,-rpath,'$$ORIGIN/'"],
+		prefix=GetOption('prefix'), variables=vars, 
+		LD_LIBRARY_PATH=os.environ.get('LD_LIBRARY_PATH', '.'))
+	ctx_default.SConsignFile("build/.sconsign")
+	ctx_default.Decider("MD5-timestamp")
+	if "1" == ctx_default['DEBUG']:
+		ctx_default.Append(CPPFLAGS=["-DDEBUG", "-UNDEBUG"],
+			LINKFLAGS=["--coverage"], CFLAGS=["-g3", "-O0", "--coverage"])
+	else:
+		ctx_default.Append(CPPFLAGS=["-DNDEBUG", "-UDEBUG"], CFLAGS=["-O3"])
+
+	Help(vars.GenerateHelpText(ctx_default, sort=True), append=True)
+
+VariantDir("build", ".", duplicate=0)
+ctx = ctx_default.Clone()
+
+copy_rsrc = ctx.Command("copy_rsrc", ["resources", "include", "exclude.lst"], 
+	action = "-mkdir -p {0}/build/share/doc/{1} ; cp -fR $SOURCES {0}/build/".format(
+		topdir, proj_name))
+
+ctx.Append(CPPFLAGS=["-I{}/include".format(subdir), "-I{}/src".format(subdir)],
+	LINKFLAGS=["-L{}/build/lib".format(subdir)])
+ctx.ParseConfig("pkg-config --cflags --libs libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}")
+{{#executable}}
+#config_pcfile = ctx.Command("#build/lib/pkgconfig/{}.pc".format(proj_name),
+#	"src/{}.pc.in".format(proj_name),
+#	action = "-sed 's|@prefix@|{}|' $SOURCE > $TARGET".format(ctx['prefix']))
+#libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
+#	Glob("build/src/**/*.c"), SHLIBVERSION=version)
+##libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
+##	Glob("build/src/**/*.c") + Glob("build/*.s"), SHLIBVERSION=version)
+#libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
+#	Glob("build/src/**/*.c"))
+##libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
+##	Glob("build/src/**/*.c") + Glob("build/*.s"))
+#ctx.Default([copy_rsrc, config_pcfile, libdyn, libstat])
+{{/executable}}
+{{^executable}}
+config_pcfile = ctx.Command("#build/lib/pkgconfig/{}.pc".format(proj_name),
+	"src/{}.pc.in".format(proj_name),
+	action = "-sed 's|@prefix@|{}|' $SOURCE > $TARGET".format(ctx['prefix']))
+libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
+	Glob("build/src/**/*.c"), SHLIBVERSION=version)
+#libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
+#	Glob("build/src/**/*.c") + Glob("build/*.s"), SHLIBVERSION=version)
+libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
+	Glob("build/src/**/*.c"))
+#libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
+#	Glob("build/src/**/*.c") + Glob("build/*.s"))
+ctx.Default([copy_rsrc, config_pcfile, libdyn, libstat])
+{{/executable}}
+#ctx.Alias('install', ctx.InstallVersionedLib(ctx['prefix'] + "/lib",
+#	source=[libdyn]))
+#ctx.Alias("install", ctx.Install(ctx['prefix'] + "/lib", source=[libstat]))
+ctx.Alias("install", ctx.Command("install_files", Glob("include") + 
+	Glob("#build/lib") + Glob("#build/share") + Glob("#build/bin"),
+	action = "-cp -fR $SOURCES {}/".format(ctx['prefix'])))
+
+uninstallfiles = Glob("{}/lib/pkgconfig/{}.pc".format(ctx['prefix'], 
+	proj_name)) + Glob("{}/lib/lib*{}*.*".format(ctx['prefix'], proj_name)) + \
+	Glob("{}/share/doc/{}".format(ctx['prefix'], proj_name)) + \
+	Glob("{}/bin/*{}*".format(ctx['prefix'], proj_name))
+ctx.Alias("uninstall", ctx.Command("uninstall_files", uninstallfiles,
+	action = "-rm -ir $SOURCES"))
+
+ctx.Append(TARFLAGS=["-a", "--format=posix", "--dereference",
+	"--exclude-from={}/exclude.lst".format(subdir)])
+ctx.Append(ZIPFLAGS=["-9", "-q", "--exclude", "@{}/exclude.lst".format(subdir),
+	"-r"])
+distdir = proj_name + "-" + version
+
+pre_dist = ctx.Action(
+	#("-mkdir -p {0}/{1} ; zip --exclude {0}/{1} {2} - {0}" + 
+	#	" | unzip -od {0}/{1} -").format(subdir, distdir, ctx['ZIPFLAGS'])
+	("-mkdir -p {0}/{1} ; tar --exclude {0}/{1} {2} -cf - {0}" + 
+		" | tar -xpf - -C {0}/{1}").format(subdir, distdir, ctx['TARFLAGS'])
+	)
+post_dist = ctx.Action("rm -fr {}/{}".format(subdir, distdir))
+
+package = ctx.Package(NAME=proj_name, VERSION=version, #PACKAGETYPE="src_zip",
+	source=distdir, target='build/pkg/' + distdir,
+	#PACKAGEVERSION=0, LICENSE="{{license}}{{^license}}Apache-2.0{{/license}}",
+	#SOURCE_URL="{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/" + parent,
+	#SUMMARY="{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}",
+	#DESCRIPTION="{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}",
+)
+ctx.AddPreAction(package, pre_dist)
+ctx.AddPostAction(package, post_dist)
+
+dist_tar = ctx.Tar("build/{}.{}".format(distdir, ctx['TARSUFFIX']), distdir)
+dist_zip = ctx.Zip("build/{}.zip".format(distdir), distdir)
+ctx.Alias("dist", [ctx.Command("pre_dist", [], pre_dist)] + 
+	([dist_tar] if "tar" in ctx['TOOLS'] else []) + 
+	([dist_zip] if "zip" in ctx['TOOLS'] else []) + 
+	[ctx.Command("post_dist", [], post_dist)])
+
+if "ON" == ctx['BUILDTEST']:
+	ctx_t = ctx_default.Clone()
+	ctx_t.Append(CPPFLAGS=["-I{}/include".format(topdir)], 
+		LINKFLAGS=["-L{}/build/lib".format(topdir){{^executable}},
+		"-l" + proj_name{{/executable}}])
+	ctx_t.ParseConfig("pkg-config --cflags --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}")
+	ts_main = ctx_t.Program("build/ts_main", Glob("build/tests/*.c"))
+	ctx_t.Default([ts_main])
+
+#lintopts = "--enable=information --report-progress --quiet --force " + \
+#	"--suppress=missingIncludeSystem --std=c99 --std=posix -Iinclude -Isrc"
+lintopts = "--enable=all --report-progress --quiet --force " + \
+	"--std=c99 --std=posix -Iinclude -Isrc"
+{{#executable}}
+main = ctx.Program("#build/bin/{}".format(proj_name), Glob("build/src/**/*.c"))
+ctx.Default([copy_rsrc, main])
+
+debugger_cmd = "ddd --gdb"
+valgrind_cmd = "valgrind --verbose --tool=memcheck"
+{{/executable}}
+
+def EnvVariables(ctx=None):
+	if not 'print_vars' in COMMAND_LINE_TARGETS: return
+	if not ctx: ctx = DefaultEnvironment()
+	default_vars = "prefix,BUILDTEST,DEBUG,CC,CXX,TOOLS,TARSUFFIX"
+	args = ARGUMENTS.get("VARS", default_vars).split(",")
+	if [""] == args:
+		print("\n  ({}) All keys from construction environment: ".format(subdir))
+		print("  " + "-" * 20 + "\n" + str(sorted(ctx.Dictionary().keys())))
+	else:
+		print("\n  ({}) Selected variables from construction environment: ".format(subdir))
+		print("  " + "-" * 20 + "\t(VARS={})".format(",".join(args)))
+	for varX in sorted(args):
+		if "" == varX: continue
+		print("  {}: {}".format(varX, ctx.get(varX, "#" * 5 + 
+			" Non-existent key! " + "#" * 5)))
+	print("")
+
+def PhonyTargets(ctx=None, **kw):
+	if not ctx: ctx = DefaultEnvironment()
+	for target, action in kw.items():
+		if "test" == target and "ON" != ctx['BUILDTEST']:
+			continue
+		ctx.AlwaysBuild(ctx.Alias(target, [], action))
+
+PhonyTargets(ctx,
+	print_vars=ctx.Action(EnvVariables(ctx)),
+	#classicffi_asm_s="cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o build/classic_asm.s {0}/src/${parent}/classic_asm.c.bak ; cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o build/classic_f90.s {0}/src/${parent}/classic_f90.f90.bak".format(subdir),
+	test="-cd {}/build ; LD_LIBRARY_PATH={}:{}/build/lib ./ts_main {}".format(
+		subdir, ctx['LD_LIBRARY_PATH'], topdir, ARGUMENTS.get("TOPTS", "")),
+	doc=("-doxygen {}/Doxyfile_*.txt ; rm -fr {}/{}/build/share/doc/{}/html ;" +
+		" mv -f {}/html {}/{}/build/share/doc/{}/html").format(subdir, topdir,
+		subdir, proj_name, subdir, topdir, subdir, proj_name),
+	lint="-cd {} ; cppcheck {} src".format(subdir, lintopts),
+	report=("-cd {}/build ; lcov --capture -d . -o .coverage " + 
+		"--gcov-tool {}/{}/llvm-gcov.sh ; ").format(subdir, topdir, subdir) +
+		"genhtml -o cov .coverage",
+{{#executable}}
+	run="-cd {0}/build ; LD_LIBRARY_PATH={1}:{0}/build/lib bin/{2} {3}".format(topdir,
+		ctx['LD_LIBRARY_PATH'], proj_name, ARGUMENTS.get("ARGS", "")),
+	debug="-cd {0}/build ; LD_LIBRARY_PATH={1}:{0}/build/lib {2} bin/{3} {4}".format(topdir,
+		ctx['LD_LIBRARY_PATH'], debugger_cmd, proj_name, ARGUMENTS.get("ARGS", "")),
+	valgrind="-cd {0}/build ; LD_LIBRARY_PATH={1}:{0}/build/lib {2} bin/{3}".format(topdir,
+		ctx['LD_LIBRARY_PATH'], valgrind_cmd, proj_name),
+{{/executable}}
+	)
+
+try:
+	from SCons.Node.Alias import default_ans
+except ImportError:
+	pass
+else:
+	Help("\n({}) Recognized targets:\n".format(subdir), append=True)
+	for alias in sorted(default_ans.keys()):
+		Help("    ... {}\n".format(alias), append=True)

@@ -1,0 +1,19 @@
+#ifndef TC_CLASSIC_H
+#define TC_CLASSIC_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <CUnit/Basic.h>
+
+int init_classic(void);
+int clean_classic(void);
+
+void* tc_classic_suite(CU_pSuite pSuite);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // TC_CLASSIC_H

@@ -1,0 +1,14 @@
+startParameter.offline = true
+/*
+// To declare projects as part of a multi-project build use the 'include' method
+include 'shared'
+include 'app'
+include 'services:webservice'
+*/
+
+rootProject.name = '{{parent}}{{^parent}}intro_c{{/parent}}'
+
+//include ":${rootProject.name}-util", ":${rootProject.name}-intro"
+include ':common', ':app'
+project(':common').name = "${rootProject.name}-util"
+project(':app').name = "${rootProject.name}-intro"

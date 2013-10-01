@@ -1,0 +1,63 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <math.h>
+#include <float.h>
+#include <CUnit/Basic.h>
+
+struct func_info {void (*func)(void); const char *name;
+};
+
+/**CUnit Test Suite */
+int init_new(void) {
+    printf("\n###setup Suite###");
+    return 0;
+}
+
+int clean_new(void) {
+    printf("\n###teardown Suite###\n");
+    return 0;
+}
+
+static void test_1(void) {
+    CU_ASSERT(2 * 2 == 4);
+}
+
+static void test_dbl(void) {
+    CU_ASSERT_DOUBLE_EQUAL(4.0, 4.0, (2 * DBL_EPSILON));
+}
+
+static void test_str(void) {
+    char *str1 = "Hello";
+    CU_ASSERT_STRING_EQUAL(str1, "Hello");
+}
+
+static void test_bad(void) {
+    CU_ASSERT_EQUAL(4, 5);
+}
+
+static void test_fail(void) {
+    CU_FAIL("Fail");
+}
+
+static void test_pass(void) {
+    CU_PASS("Pass");
+}
+
+
+void* tc_new_suite(CU_pSuite pSuite) {
+    struct func_info func_infos[] = {
+		{test_1, "test_1"}, {test_dbl, "test_dbl"}, {test_str, "test_str"},
+		{test_bad, "test_bad"},{test_fail, "test_fail"},{test_pass, "test_pass"}
+	};
+    int arrLen = sizeof(func_infos) / sizeof(func_infos[0]);
+      
+    /* Add the tests to the suite */
+    for (int i = 0; arrLen > i; ++i) {
+        if (NULL == CU_add_test(pSuite, func_infos[i].name, 
+                func_infos[i].func))
+            return NULL;
+    }
+    return pSuite;
+}
+

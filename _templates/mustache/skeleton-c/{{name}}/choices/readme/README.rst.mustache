@@ -1,0 +1,92 @@
+{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-{{/joiner}}{{projectcap}}{{^projectcap}}Util{{/projectcap}}
+===========================================
+.. .rst to .html: rst2html5 foo.rst > foo.html
+..                pandoc -s -f rst -t html5 -o foo.html foo.rst
+
+{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}
+
+Installation
+------------
+source code tarball download:
+    
+        # [aria2c --check-certificate=false | wget --no-check-certificate | curl -kOL]
+        
+        FETCHCMD='aria2c --check-certificate=false'
+        
+        $FETCHCMD https://{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/{{parent}}{{^parent}}intro_c{{/parent}}/[get | archive]/master.zip
+
+version control repository clone:
+        
+        git clone https://{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/{{parent}}{{^parent}}intro_c{{/parent}}.git
+
+build example with gradle:
+cd <path> ; gradle assemble [check]
+
+[sudo] gradle [-Pprefix=$PREFIX] install
+
+build example with premake:
+cd <path>/build ; premake4 --file=../premake4.lua gmake [--help]
+
+make all [; premake4 --file=../premake4.lua test]
+
+[sudo] premake --file=../premake4.lua [--prefix=$PREFIX] install
+
+build example with rake:
+cd <path>/build ; [sh] ../configure.sh [--prefix=$PREFIX] [--help]
+
+rake all [test]
+
+[sudo] rake install
+
+build example with scons:
+cd <path> ; scons [; scons test]
+
+[sudo] scons install [prefix=$PREFIX]
+
+build example with make:
+cd <path>/build ; [sh] ../configure.sh [--prefix=$PREFIX] [--help]
+
+make all [check]
+
+[sudo] make install
+
+build example with autotools:
+cd <path>/build ; [sh] ../bootstrap.sh [--prefix=$PREFIX] [--help]
+
+make all [check]
+
+[sudo] make install
+
+build example with cmake:
+cd <path>/build ; cmake [-DCMAKE_INSTALL_PREFIX=$PREFIX] [-G Ninja] [--help] ..
+
+cmake --build . --target all [; cmake --build . --target test]
+
+Usage
+-----
+{{#executable}}
+        [env RSRC_PATH=<path>/resources] [$PREFIX/bin/]{{name}}{{^name}}intro_c-util{{/name}} [-h]
+{{/executable}}
+{{^executable}}
+        // PKG_CONFIG='pkg-config --with-path=$PREFIX/lib/pkgconfig'
+        
+        // $PKG_CONFIG --cflags --libs <ffi-lib>
+
+        #include "{{parent}}{{^parent}}intro_c{{/parent}}/{{project}}{{^project}}util{{/project}}.h"
+        
+        int i, arr1[] = {0, 1, 2}, arr2[] = {10, 20, 30};
+        
+        int len1 = sizeof(arr1) / sizeof(i), len2 = sizeof(arr2) / sizeof(i);
+        
+		int arr_prod[len1 * len2][2];
+        
+        cartesian_prod_ints(arr1, len1, arr2, len2, arr_prod);
+{{/executable}}
+
+Author/Copyright
+----------------
+Copyright (c) {{year}}{{^year}}2013{{/year}} by {{author}}{{^author}}{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}{{/author}} <{{email}}{{^email}}{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}-codelab@yahoo.com{{/email}}>
+
+License
+-------
+Licensed under the {{license}}{{^license}}Apache-2.0{{/license}} License. See LICENSE for details.

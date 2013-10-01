@@ -1,0 +1,15 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: {{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-{{/joiner}}{{projectcap}}{{^projectcap}}Util{{/projectcap}}
+Description: {{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}
+URL: https://{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/{{parent}}{{^parent}}intro_c{{/parent}}
+Version: {{version}}{{^version}}0.1.0{{/version}}
+Conflicts: 
+Requires.private: libpcre glib-2.0
+Libs.private: 
+Requires: 
+Cflags: -I${includedir}
+Libs: -L${libdir} -l{{name}}{{^name}}intro_c-util{{/name}}

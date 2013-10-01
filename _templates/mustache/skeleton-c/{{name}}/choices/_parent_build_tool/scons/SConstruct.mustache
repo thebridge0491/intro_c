@@ -1,0 +1,83 @@
+# Multi-package project SConstruct script.
+import os
+
+topdir = Dir("#").abspath
+
+parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
+version = "0.1.0"
+
+vars_top = Variables()
+AddOption('--prefix', dest='prefix', nargs=1, type='string', action='store',
+	default='/usr/local', help='Install prefix (default: /usr/local)',
+	#metavar='DIR'
+	)
+#AddOption('--buildtest', dest='buildtest', nargs=1, type='string', 
+#	action='store', default='ON', help='Build test with all (default: ON)')
+vars_top.AddVariables(
+	EnumVariable('DEBUG', 'Build with debug symbols & coverage, if DEBUG=1',
+		'0', allowed_values=['0', '1']),
+	EnumVariable('BUILDTEST', 'Build test with all', 'ON', 
+		allowed_values=['ON', 'OFF']),
+	ListVariable('TOOLS', 'Archive distribution tools', ['tar', 'zip'],
+		['tar', 'zip']),
+	EnumVariable('TARSUFFIX', 'Tar archive suffix (for compression)', 'tar.gz',
+		allowed_values=['tar.gz', 'tar.bz2', 'tar.xz', 'tar.7z', 'tar']),
+	('SUBDIRS', 'Subdirectories to run targets', 'common,app')
+)
+
+ctx_default = Environment(ENV=os.environ, tools=["default", "packaging"],
+	CC=ARGUMENTS.get("CC", "clang"), CXX=ARGUMENTS.get("CXX", "clang++"),
+	ARFLAGS="rvcs", LINKFLAGS=["-Wl,-rpath,'$$ORIGIN/'"],
+	prefix=GetOption('prefix'), variables=vars_top, 
+	LD_LIBRARY_PATH=os.environ.get('LD_LIBRARY_PATH', '.'))
+ctx_default.SConsignFile("build/.sconsign")
+ctx_default.Decider("MD5-timestamp")
+if "1" == ctx_default['DEBUG']:
+	ctx_default.Append(CPPFLAGS=["-DDEBUG", "-UNDEBUG"],
+		LINKFLAGS=["--coverage"], CFLAGS=["-g3", "-O0", "--coverage"])
+else:
+	ctx_default.Append(CPPFLAGS=["-DNDEBUG", "-UDEBUG"], CFLAGS=["-O3"])
+
+Help(vars_top.GenerateHelpText(ctx_default, sort=True), append=True)
+
+VariantDir("build", ".", duplicate=0)
+ctx_top = ctx_default.Clone()
+ctx_top.Default(None)
+
+#Export(["ctx_top", {"vars":vars_top}])
+SConscript(["{}/SConstruct".format(dirX) for dirX in
+		ctx_top['SUBDIRS'].split(',')],
+	["ctx_top", {"vars":vars_top}])
+
+
+ctx_top.Append(TARFLAGS=["-a", "--format=posix", "--dereference", 
+	"--exclude-from={}/exclude.lst".format(topdir)])
+ctx_top.Append(ZIPFLAGS=["-9", "-q", "--exclude", "@{}/exclude.lst".format(topdir),
+	"-r"])
+distdir = parent + "-" + version
+
+pre_dist = ctx_top.Action(
+	#("-mkdir -p {0} ; zip --exclude {0} {1} - ." + 
+	#	" | unzip -od {0} -").format(distdir, ctx_top['ZIPFLAGS'])
+	("-mkdir -p {0} ; tar --exclude {0} {1} -cf - ." + 
+		" | tar -xpf - -C {0}").format(distdir, ctx_top['TARFLAGS'])
+	)
+post_dist = ctx_top.Action("rm -fr " + distdir)
+
+package = ctx_top.Package(NAME=parent, VERSION=version, #PACKAGETYPE="src_zip", 
+	source=distdir, target='build/pkg/' + distdir,
+	#PACKAGEVERSION=0, LICENSE="Apache-2.0",
+	#SOURCE_URL="{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/" + parent,
+	#SUMMARY="{{parentdescription}}{{^parentdescription}}Multi-package project Intro examples for C.{{/parentdescription}}",
+	#DESCRIPTION="{{parentdescription}}{{^parentdescription}}Multi-package project Intro examples for C.{{/parentdescription}}",
+)
+ctx_top.AddPreAction(package, pre_dist)
+ctx_top.AddPostAction(package, post_dist)
+
+dist_tar = ctx_top.Tar("build/{}.{}".format(distdir, ctx_top['TARSUFFIX']), 
+	distdir)
+dist_zip = ctx_top.Zip("build/{}.zip".format(distdir), distdir)
+ctx_top.Alias("dist", [ctx_top.Command("pre_dist", [], pre_dist)] + 
+	([dist_tar] if "tar" in ctx_top['TOOLS'] else []) + 
+	([dist_zip] if "zip" in ctx_top['TOOLS'] else []) + 
+	[ctx_top.Command("post_dist", [], post_dist)])
