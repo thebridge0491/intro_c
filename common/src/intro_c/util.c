@@ -170,3 +170,73 @@ void cartesian_prod_floats(const float arr1[], const int len_arr1,
         }
     }
 }
+
+
+int intptr_cmp(const void *a, const void *b) {
+    return int_cmp(*(int**)a, *(int**)b);
+}
+int floatptr_cmp(float tolerance, const void *a, const void *b) {
+    return float_cmp(tolerance, *(float**)a, *(float**)b);
+}
+
+static int intptr_fmt(char *str, size_t size, const void *elem) {
+    return snprintf(str, size, "%i,", *(int*)elem);
+}
+static int floatptr_fmt(char *str, size_t size, const void *elem) {
+    return snprintf(str, size, "%.2f,", *(float*)elem);
+}
+static int strcharptr_kv_fmt(char *str, size_t size, const void *key, 
+        const void *val) {
+    return snprintf(str, size, "(%s => %c),", (char*)key, *(char*)val);
+}
+static void ptrel_to_str(int (*el_fmt)(char *str, size_t size, 
+        const void *elem), const void *elem, char **dest) {
+    int buf_len = 31;
+    char buf[buf_len + 1];
+    el_fmt(buf, buf_len, elem);
+    str_append(dest, buf);
+}
+static void ptrkv_to_str(int (*kv_fmt)(char *str, size_t size, 
+        const void *key, const void *val), const void *key, const void *val, 
+        char **dest) {
+    int buf_len = 31;
+    char buf[buf_len + 1];
+    kv_fmt(buf, buf_len, key, val);
+    str_append(dest, buf);
+}
+void intptr_el_to_str(const void *elem, char **dest) {
+    ptrel_to_str(intptr_fmt, elem, dest);
+}
+void floatptr_el_to_str(const void *elem, char **dest) {
+    ptrel_to_str(floatptr_fmt, elem, dest);
+}
+void strcharptr_kv_to_str_void(const void *key, const void *val, char **dest) {
+    ptrkv_to_str(strcharptr_kv_fmt, key, val, dest);
+}
+bool strcharptr_kv_to_str_bool(const void *key, const void *val, char **dest) {
+    strcharptr_kv_to_str_void(key, val, dest);
+    return 0;
+}
+
+void mkstring_ptrarray(void (*el_to_str)(const void *elem, char **dest), 
+        int nelts, const void **arr, char **dest) {
+    const char *beg = "[", *end = "]";
+    str_append(dest, beg);
+    for (int i = 0; nelts > i; ++i)
+        el_to_str(arr[i], dest);
+    str_append(dest, end);
+}
+void mkstring_ints(int nelts, const int *arr, char **dest) {
+    const char *beg = "[", *end = "]";
+    str_append(dest, beg);
+    for (int i = 0; nelts > i; ++i)
+        intptr_el_to_str(&arr[i], dest);
+    str_append(dest, end);
+}
+void mkstring_floats(int nelts, const float *arr, char **dest) {
+    const char *beg = "[", *end = "]";
+    str_append(dest, beg);
+    for (int i = 0; nelts > i; ++i)
+        floatptr_el_to_str(&arr[i], dest);
+    str_append(dest, end);
+}

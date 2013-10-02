@@ -1,172 +1,59 @@
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif /* __STDC_VERSION__ */
+
 #include <stdio.h>
 #include <stdlib.h>
-//#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-#include <stdint.h>
+#include <unistd.h>
+#include <stdbool.h>
 #include <math.h>
-#include <float.h>
+#include <string.h>
+#include <log4c.h>
 
-#include "intro_c/intro.h"
+#include "intro_c/util.h"
 
+static log4c_category_t *prac1;
 
-#define MAX_ERROR_MSG 80
-#define OVECCOUNT 30
-
-#if (defined __APPLE__)
-
-int clock_gettime(clockid_t clock_id, struct timespec* tp) {
-	struct timeval tn;
-	int res;
-	
-	if ((res = gettimeofday(&tn, NULL)))
-		return res;
-	tp->tv_sec = tn.tv_sec;
-	tp->tv_nsec = tn.tv_usec * 1000;
-	return 0;
-}
-#endif
-
-
-void str_append(char **dest, const char *src) {
-    char *old_dest = *dest, *result;
+void greeting(const char *greet_path, const char *name, char **greet_buf) {
+    FILE *fIn;
+    char *str = "(Missing greeting) ???, ", buf[80];
     
-    result = (char*)calloc(strlen(*dest) + strlen(src) + 1, sizeof(char));
-    strncpy(result, old_dest, 1 + strlen(old_dest));
-    strncat(result, src, strlen(src));
-    free(old_dest);
-    *dest = result;
-}
-const char* string_replicate(const int n, const char *str, 
-        const int len_buf, const char *buf) {
-    const int len_str = strlen(str);
-    char *p = (char*)buf;
+    *greet_buf = (char*)calloc(strlen(buf) + strlen(name) + 1, sizeof(char));
+    strncpy(*greet_buf, str, 1 + strlen(str));
+    strncat(*greet_buf, name, 1 + strlen(name));
     
-    for (int i = 0, j = 0; n > i && (len_buf - 1) > (j + len_str); ++i,
-            p += len_str, j += len_str) {
-        memcpy(p, str, len_str);
-    }
-    *p = '\0';
-    return buf;
-}
-void chk_strtol(int32_t *ret, const char *nptr, char **endptr, int32_t base) {
-    int32_t errno_reset = errno;
-    errno = 0;
-    *ret = strtol(nptr, endptr, base);
-
-    if ((ERANGE == errno && (INT32_MAX == *ret || INT32_MIN == *ret)) 
-            || (0 != errno && 0 == *ret)) {
-        perror("Error: strtol");
-        exit(EXIT_FAILURE);
+    prac1 = log4c_category_get("prac");
+    log4c_category_log(prac1, LOG4C_PRIORITY_INFO, "greeting()");
+    
+    if (NULL == (fIn = fopen(greet_path, "r"))) {
+        perror(greet_path);
+        //exit(EXIT_FAILURE);
+        return;
 	}
-    errno = errno_reset;
-}
-void get_line(char *buf, int buf_sz, FILE *fIn, bool use_fgets) {
-    bool is_done;
+    get_line(buf, sizeof(buf), fIn, false);  
     
-    if (use_fgets)
-        is_done = (NULL == fgets(buf, buf_sz, fIn));
-    else
-        is_done = (EOF == fscanf(fIn, "%[^\n]", buf)); 
-    if (is_done) {
-        perror("get_line");
-        exit(EXIT_FAILURE);
-    } 
-    if ('\n' == buf[strlen(buf) - 1])
-        buf[strlen(buf) - 1] = '\0';
-}
-
-char* inicfg_to_str(GKeyFile *cfg_ini) {
-    const char *beg = "{", *sep = ", ", *stop = "}\n";
-    char *result = (char*)calloc(1, sizeof(char)), buf[32];
-    gsize group_len, sect_len;
-    GError *error = NULL;
+    strncpy(*greet_buf, buf, 1 + strlen(buf));
+    strncat(*greet_buf, name, 1 + strlen(name));
     
-    str_append(&result, beg);
+    fclose(fIn);
+}
+
+char delay_char(float microsecs) {
+    char ch = '\0';
+    float secs = microsecs / (float)(1.0e6); 
+    float secs_floor = floorf(secs), nsecs = (secs - floorf(secs)) * (1.0e9);
+    struct timespec time_delay = {.tv_sec = (int)secs_floor, 
+        .tv_nsec = (long)nsecs};
     
-    gchar **groups = g_key_file_get_groups(cfg_ini, &group_len);
-    for (int i = 0; group_len > i; ++i) {
-        gchar **sects = g_key_file_get_keys(cfg_ini, groups[i], &sect_len, 
-			&error);
-        for (int j = 0; sect_len > j; ++j) {
-			gchar *value = g_key_file_get_string(cfg_ini, groups[i], sects[j],
-                &error);
-            snprintf(buf, 32, "%s(%s:%s => %s)", (0 == i) ? "" : sep, 
-                groups[i], sects[j], value);
-            str_append(&result, buf);
-            g_free(value);
-            if (NULL != error)
-                g_error_free(error);
-        }
-        g_strfreev(sects);
+    while (true) {
+        nanosleep(&time_delay, NULL);    // usleep(microsecs);
+        puts("Type any character when ready."); // fputs("...", stdout);
+        ch = fgetc(stdin);  // scanf("%c", &ch);
+        
+        if ('\n' != ch && '\0' != ch)
+            break;
     }
-    g_strfreev(groups);
-    str_append(&result, stop);
-    return result;
-}
-
-int int_cmp(const void *a, const void *b) {
-    int x = *(int*)a, y = *(int*)b;
-    return (x == y) ? 0 : ((x < y) ? -1 : 1);
-}
-int float_cmp(float tolerance, const void *a, const void *b) {
-    float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
-    return ((x + delta) < y) ? -1 : ((x - delta) > y) ? 1 : 0;
-}
-bool in_epsilon(float tolerance, const void *a, const void *b) {
-	float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
-	//return (x - delta) <= y && (x + delta) >= y;
-	return !((x + delta) < y) && !((y + delta) < x);
-}
-
-
-int compile_regex(regex_t *r, const char *regex_txt, int cflags) {
-    int status = regcomp(r, regex_txt, cflags);
-    if (0 == status)
-        return 0;
-    char error_msg[MAX_ERROR_MSG];
-    regerror(status, r, error_msg, MAX_ERROR_MSG);
-    fprintf(stderr, "Regex error compiling '%s': %s\n", regex_txt, error_msg);
-    return 1;
-}
-int match_regex(regex_t *r, const char *to_match) {
-    const char *p = to_match;
-    const int n_matches = 10;
-    regmatch_t matches[n_matches];
-    int nomatch = regexec(r, p, n_matches, matches, 0);
-    return (nomatch) ? nomatch : 0;
-}
-
-pcre* compile_pcre(const char *pat, int cflags) {
-    const char *error;
-    int erroffset;
-    pcre *re = pcre_compile(pat, cflags, &error, &erroffset, NULL);
-    if (NULL != re)
-        return re;
-    fprintf(stderr, "PCRE compile error at offset %i: %s\n", erroffset, error);
-    return NULL;
-}
-int match_pcre(pcre *re, int *ovector, const char *txt) {
-    int str_len = (int)strlen(txt);
-    return pcre_exec(re, NULL, txt, str_len, 0, 0, ovector, OVECCOUNT);
-}
-
-
-void cartesian_prod_ints(const int arr1[], const int len_arr1, 
-        const int arr2[], const int len_arr2, int arr_prod[][2]) {
-    for (int i = 0, idxX = 0; len_arr1 > i; ++i) {
-        for (int j = 0; len_arr2 > j; ++j) {
-            idxX = j + (i * len_arr2);
-            arr_prod[idxX][0] = arr1[i]; arr_prod[idxX][1] = arr2[j];
-        }
-    }
-}
-void cartesian_prod_floats(const float arr1[], const int len_arr1, 
-        const float arr2[], const int len_arr2, float arr_prod[][2]) {
-    for (int i = 0, idxX = 0; len_arr1 > i; ++i) {
-        for (int j = 0; len_arr2 > j; ++j) {
-            idxX = j + (i * len_arr2);
-            arr_prod[idxX][0] = arr1[i]; arr_prod[idxX][1] = arr2[j];
-        }
-    }
+    return ch;
 }

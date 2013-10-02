@@ -3,11 +3,7 @@
 #include <stdbool.h>
 #include <check.h>
 
-static bool in_epsilon(float tolerance, const void *a, const void *b) {
-	float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
-	//return (x - delta) <= y && (x + delta) >= y;
-	return !((x + delta) < y) && !((y + delta) < x);
-}
+#include "intro_c/util.h"
 
 static int initNum1 = 0, initNum2 = 0;
 
@@ -81,4 +77,3 @@ Suite* tc_new_suite(void) {
     suite_add_tcase(suite, tc_new);
     return suite;
 }
-

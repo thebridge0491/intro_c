@@ -1,0 +1,67 @@
+! to convert to asm:
+! $(CC) -Iinclude -Isrc -std=f2003 -m64 -fPIC -S -masm=att -x f95 -o classic_f90.s classic_f90.f90.bak
+module classic_f90
+    use, intrinsic :: iso_c_binding
+    use, intrinsic :: iso_fortran_env
+    implicit none
+    
+    private
+    public :: fact_f90_i, fact_f90_lp, expt_f90_i, expt_f90_lp
+    
+contains
+    recursive integer (c_long) function fact_f90_iter(n, acc) result(res)
+        integer, intent(in) :: n
+        integer (c_long), intent(in) :: acc
+        
+        if (n <= 1) then
+            res = acc
+        else
+            res = fact_f90_iter(n - 1, n * acc)
+        end if
+    end function fact_f90_iter
+    
+    integer (c_long) function fact_f90_i(num) result(fac) bind(c)
+        integer (c_int), value, intent(in) :: num ! C default call-by-value
+        integer (c_long) :: acc = 1
+        
+        fac = fact_f90_iter(num, acc)
+    end function fact_f90_i
+
+    integer (c_long) function fact_f90_lp(num) result(fac) bind(c)
+        integer (c_int), value, intent(in) :: num ! C default call-by-value
+        integer (c_int) :: i
+        
+        fac = 1
+        do i = 2, num, 1
+            fac = fac * i
+        end do
+    end function fact_f90_lp
+    
+    recursive real (c_float) function expt_f90_iter(b, n, acc) result(res)
+        real (c_float), intent(in) :: b, n, acc
+        
+        if (n <= 0.0) then
+            res = acc
+        else
+            res = expt_f90_iter(b, n - 1.0, b * acc)
+        end if
+    end function expt_f90_iter
+    
+    real (c_float) function expt_f90_i(base, num) result(expt) bind(c)
+        real (c_float), value, intent(in) :: base, num ! C default call-by-value
+        real (c_float) :: acc = 1.0
+        
+        expt = expt_f90_iter(base, num, acc)
+    end function expt_f90_i
+    
+    real (c_float) function expt_f90_lp(base, num) result(expt) bind(c)
+        real (c_float), value, intent(in) :: base, num ! C default call-by-value
+        integer (c_int) :: i
+        
+        expt = 1.0
+        do i = 1, int(num), 1
+            expt = expt * base
+        end do
+    end function expt_f90_lp
+end module classic_f90
+

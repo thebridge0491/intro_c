@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 //#include <unistd.h>
+#include <time.h>
 #include <assert.h>
 #include <string.h>
 #include <getopt.h>
@@ -14,50 +15,210 @@
 #include <json-c/json.h>
 #include <yaml.h>
 
-#include "intro_c/intro.h"
+#include "intro_c/util.h"
 #include "intro_c/person.h"
+#include "intro.h"
+#include "intro_c/classic.h"
+#include "intro_c/sequenceops.h"
 
 #define OVECCOUNT 30
 
-struct opts_record {char name[32];
+//#define PI 3.14
+float const PI = 3.14f;
+
+typedef char unsigned uchar_t;
+
+enum ConstItems {ZERO, NUMZ = 26};
+
+enum Kind {FLOAT, DOUBLE, DOUBLEL, INTSHORT, UINTLONG};
+
+struct opts_record {char name[32]; int num; bool is_expt2;
+};
+
+struct user {char name[32]; int num; time_t time_in;
+};
+
+struct u_var {
+    int kind;
+    union {
+        // optional int specifiers: [unsigned|signed] [short|long|long long]
+        short signed sh; long unsigned ul;
+        
+        float f;
+        // optional double specifiers: [long]
+        double d; double long m;
+    } val;
 };
 
 static log4c_category_t *root;
 
-static void run_intro(char *rsrc_path, struct opts_record *opts) {
+static void run_intro(const char *progname, char *rsrc_path, 
+        struct opts_record *opts) {
+    time_t time_in = time(NULL);
+    srand(time_in);
+    struct timespec t1, t2;
+    
+    if (-1 == clock_gettime(CLOCK_MONOTONIC, &t1))  // to use, link w/ -lrt
+        fprintf(stderr, "clock_gettime error for t1.\n");
+    
+    // basic datatypes
+    bool is_done = false;
+    int num_i = 0, arr_len = ZERO;
+    const int len_repeat = 80;
+    float time_diff = 0.0f, delay_usecs = 2.5e6;
+    char ch = '\0';
+    
+    // pointers
+    char path_buf[128];
+    snprintf(path_buf, sizeof(path_buf) - 1, "%s/greet.txt", rsrc_path);
+    char *greetBuf = NULL, *greet_path = path_buf;
+    int *num_ptr = &num_i;
+    FILE *fOut = stdout;
+    
+    // string & arrays
+    char *noname = "World", dateBuf[64];
+    const char buf_repeat[len_repeat];
+    int numArr[] = {11, 013, 0xb, 11};  // {bin, oct, hex, dec}
+    
+    // composites
+    struct u_var u_var1;
+    struct user user1 = {.num = opts->num, .time_in = time_in};
+    PERSON person1 = construct_person("I.M. Computer", 32);
+    
+    struct user *user_ptr = &user1;
+    
+    arr_len = sizeof(numArr) / sizeof(numArr[0]);
+    
+    for (int i = 0; arr_len > i; ++i)
+        num_i += numArr[i];
+    assert((arr_len * numArr[0]) == *num_ptr);
+    
+    ch = delay_char(delay_usecs);
+    
+    if (0 == user_ptr->num)
+        user_ptr->num = (rand() % 17) + 2;
+    
+    strncpy(user1.name, opts->name, 1 + strlen(opts->name));
+    
     //regex_t regex;
     //compile_regex(&regex, "^quit$", REG_EXTENDED|REG_NEWLINE|REG_ICASE);
     int ovector[OVECCOUNT];
     pcre *re = compile_pcre("^quit$", PCRE_CASELESS);//("(?i)^quit$", 0);
     
-    //int rc = match_regex(&regex, opts->name);
-    int rc = match_pcre(re, ovector, opts->name);
+    //int rc = match_regex(&regex, user1.name);
+    int rc = match_pcre(re, ovector, user1.name);
     
-    if (0 > rc)
-        printf("Does not match: %s to %s\n", opts->name, "\"^quit$\"");
-    else
-        printf("Good match: %s to %s\n", opts->name, "\"^quit$\"");
+    printf("%s match: %s to %s\n", (0 > rc) ? "Does not" : "Good", user1.name, 
+        "\"^quit$\"");
+    
+    greeting(greet_path, user1.name, &greetBuf);
+    strftime(dateBuf, sizeof(dateBuf), "%c %z %Z", localtime(&user1.time_in));
+    printf("%s\n%s!\n", dateBuf, greetBuf);
+    
+    if (-1 == clock_gettime(CLOCK_MONOTONIC, &t2)) 
+        fprintf(stderr, "clock_gettime error for t2.\n");
+    time_diff = (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1.0e9;
+    printf("(program %s) Took %.1f seconds.\n", progname, time_diff);
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+    
+    do {
+        u_var1.kind = INTSHORT; u_var1.val.sh = -1;
+        u_var1.kind = UINTLONG; u_var1.val.ul = 1UL;
+        u_var1.kind = FLOAT; u_var1.val.f = 0.0f;
+        u_var1.kind = DOUBLE; u_var1.val.d = 100.0;
+        u_var1.kind = DOUBLEL; u_var1.val.m = 1.0e6L;
+    } while (is_done);
+    
+    int n0 = 0, n1 = 1, n2 = 2, n3 = 3, n4 = 4;
+    const void *ptr1_ints[] = {&n0, &n1, &n2, &n3, &n4};
+    int len_ints = sizeof(ptr1_ints) / sizeof(ptr1_ints[0]);
+    char *result = calloc(1, sizeof(char));
+    
+    int arr1[] = {9, 9, 9, 9}, arr2[] = {0, 1, 2, 3, 4};
+    GArray *gint_arr = g_array_new(FALSE, FALSE, sizeof(gint));
+    g_array_append_vals(gint_arr, arr1, 4);
+    
+    if (opts->is_expt2) {
+        fprintf(fOut, "expt_i(%.1f, %.1f) = %.1f\n", 2.0f, (float)user1.num, 
+            expt_i(2.0f, (float)user1.num));
+        
+        void **ptr2_tmps = copy_of(len_ints, ptr1_ints);
+        mkstring_ptrarray(intptr_el_to_str, len_ints, (const void**)ptr2_tmps, 
+            &result);
+        printf("reverse_lp(len_ints(%i), ptr2_tmps(%s)): ", len_ints, result);
+        free(result);
+        result = calloc(1, sizeof(char));
+        reverse_lp(len_ints, ptr2_tmps);
+        mkstring_ptrarray(intptr_el_to_str, len_ints, (const void**)ptr2_tmps, 
+            &result);
+        printf("%s\n", result);
+        free(ptr2_tmps);
+        free(result);
+        result = calloc(1, sizeof(char));
+        
+        g_array_append_vals(gint_arr, arr2, 5);
+        qsort(gint_arr->data, gint_arr->len, sizeof(int), int_cmp);
+        mkstring_ints(gint_arr->len, (const int*)gint_arr->data, &result);
+        printf("qsort(append(arr1, arr2), len_arr1 + len_arr2, sizeof(int), "
+            "int_cmp): %s\n", result);
+    } else {
+        fprintf(fOut, "fact_i(%i) = %li\n", user1.num, fact_i(user1.num));
+        
+        int el = 3;
+        mkstring_ptrarray(intptr_el_to_str, len_ints, ptr1_ints, &result);
+        printf("index_of_lp(&el(%i), len_ints(%i), ptr1_ints(%s), int_cmp): "
+            "%i\n", el, len_ints, result, index_of_lp(&el, len_ints, 
+            ptr1_ints, int_cmp));
+        free(result);
+        result = calloc(1, sizeof(char));
+        
+        g_array_append_vals(gint_arr, arr2, 5);
+        mkstring_ints(gint_arr->len, (const int*)gint_arr->data, &result);
+        printf("append(arr1, arr2): %s\n", result);
+    }
+    g_array_free(gint_arr, TRUE);
+    free(result);
+    
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+    char buf[80];
+    person_toString(person1, 80, buf);
+    printf("person_toString(person1, 80, buf): %s\n", buf);
+    person_setAge(person1, 33);
+    printf("person_setAge(person1, %i): \n", 33);
+    person_toString(person1, 80, buf);
+    printf("person_toString(person1, 80, buf): %s\n", buf);
+    
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+
+    fflush(stdout);
     
     assert(NULL != re);
     //regfree(&regex);
     pcre_free(re);
+    
+    destruct_person(person1);
+    free(greetBuf);
 }
 
 
 static void print_usage(const char *str) {
-    fprintf(stderr, "Usage: %s [-h][-u NAME]\n", str);
+    fprintf(stderr, "Usage: %s [-h][-2][-u NAME][-n NUM]\n", str);
     exit(EXIT_FAILURE);
 }
 
 void parse_cmdopts(struct opts_record *opts, int argc, char **argv) {
     int8_t opt_ch;
-    const char *opts_str = "u:h";
+    const char *opts_str = "u:n:2h";
 	log4c_category_log(root, LOG4C_PRIORITY_INFO, "parse_cmdopts()");
     //if (2 > argc)
     //    print_usage(argv[0]);
     while (-1 != (opt_ch = getopt(argc, argv, opts_str))) {
         switch (opt_ch) {
             case 'u': strncpy(opts->name, optarg, 1 + strlen(optarg));
+                break;
+            case 'n': chk_strtol(&opts->num, optarg, NULL, 10);
+                break;
+            case '2': opts->is_expt2 = true;
                 break;
             default: print_usage(argv[0]);
         }
@@ -248,7 +409,7 @@ int main(int argc, char **argv) {
 		g_error_free(error);
     g_key_file_free(cfg_ini);
     
-    run_intro(rsrc_path, &opts);
+    run_intro(argv[0], rsrc_path, &opts);
     
     log4c_category_log(root, LOG4C_PRIORITY_DEBUG, "exiting main()");
 	log4c_fini();

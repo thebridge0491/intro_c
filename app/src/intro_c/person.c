@@ -17,8 +17,8 @@ PERSON construct_person(const char *name, const int age) {
         perror("malloc person");
         return NULL;
     }
-    person1->name = "ToDo";
-    person1->age = 0;
+    person1->name = (char*)name;
+    person1->age = age;
     return person1;
 }
 
@@ -29,23 +29,22 @@ void destruct_person(PERSON person1) {
 }
 
 const char* person_getName(PERSON person1) {
-    return "ToDo";
+    return person1->name;
 }
 
 int person_getAge(PERSON person1) {
-    return 0;
+    return person1->age;
 }
 
 void person_setName(PERSON person1, const char *new_name) {
-    person1->name = "ToDo";
+    person1->name = (char*)new_name;
 }
 
 void person_setAge(PERSON person1, const int new_age) {
-    person1->age = 0;
+    person1->age = new_age;
 }
 
 void person_toString(PERSON person1, const int len_buf, char *buf) {
-    snprintf(buf, len_buf, "Person0{name = %s, age = %i}", "ToDo", 
-        0);
+    snprintf(buf, len_buf, "Person0{name = %s, age = %i}", person1->name, 
+        person1->age);
 }
-

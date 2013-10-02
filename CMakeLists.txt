@@ -53,6 +53,6 @@ if(COVERAGE_COMMAND)
 	add_custom_target(report)
 endif(COVERAGE_COMMAND)
 
-foreach(subdir IN ITEMS common app)
+foreach(subdir IN ITEMS common cforeign api app)
 	add_subdirectory(${subdir})
 endforeach(subdir)

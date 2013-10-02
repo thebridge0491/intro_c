@@ -2,10 +2,8 @@
 #include <check.h>
 
 #include "tc_new.h"
-//#include "tc_classic.h"
 
 Suite* (*suite_funcs[])(void) = {tc_new_suite};
-//Suite* (*suite_funcs[])(void) = {tc_new_suite, tc_classic_suite};
 
 int main(int argc, char **argv) {
     int number_failed;
@@ -25,4 +23,3 @@ int main(int argc, char **argv) {
     srunner_free(sr);
     exit((0 == number_failed) ? EXIT_SUCCESS : EXIT_FAILURE);
 }
-

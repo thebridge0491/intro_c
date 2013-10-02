@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include <check.h>
 
-#include "tc_new.h"
+#include "tc_classic.h"
+#include "tc_sequenceops.h"
 
-Suite* (*suite_funcs[])(void) = {tc_new_suite};
+Suite* (*suite_funcs[])(void) = {tc_classic_suite, tc_sequenceops_suite};
 
 int main(int argc, char **argv) {
     int number_failed;

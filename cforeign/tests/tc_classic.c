@@ -3,15 +3,10 @@
 #include <stdbool.h>
 #include <check.h>
 
+#include "intro_c/util.h"
 #include "intro_c/classic_asm.h"
 #include "intro_c/classic_f90.h"
 #include "intro_c/classic_c.h"
-
-static bool in_epsilon(float tolerance, const void *a, const void *b) {
-	float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
-	//return (x - delta) <= y && (x + delta) >= y;
-	return !((x + delta) < y) && !((y + delta) < x);
-}
 
 static int initNum1 = 0, initNum2 = 0;
 

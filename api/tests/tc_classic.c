@@ -3,15 +3,8 @@
 #include <stdbool.h>
 #include <check.h>
 
-#include "intro_c/classic_asm.h"
-#include "intro_c/classic_f90.h"
-#include "intro_c/classic_c.h"
-
-static bool in_epsilon(float tolerance, const void *a, const void *b) {
-	float x = *(float*)a, y = *(float*)b, delta = fabs(tolerance);
-	//return (x - delta) <= y && (x + delta) >= y;
-	return !((x + delta) < y) && !((y + delta) < x);
-}
+#include "intro_c/util.h"
+#include "intro_c/classic.h"
 
 static int initNum1 = 0, initNum2 = 0;
 
@@ -40,25 +33,33 @@ static void teardownTestA(void) {
 }
 
 START_TEST (test_fact) {
-    unsigned long (*funcs[])(unsigned int n) = {fact_asm_i, fact_asm_lp,
-		fact_f90_i, fact_f90_lp, fact_i, fact_lp};
+    long (*funcs[])(int n) = {fact_i, fact_lp};
     int len_funcs = sizeof(funcs) / sizeof(funcs[0]);
     
     for (int i = 0; len_funcs > i; ++i)
-        ck_assert_int_eq(120L, funcs[i](5));
+        ck_assert_int_eq(120, funcs[i](5));
 } END_TEST
 
 START_TEST (test_expt) {
-    float (*funcs[])(float b, float n) = {expt_asm_i, expt_asm_lp, expt_f90_i, 
-    	expt_f90_lp, expt_i, expt_lp};
+    float (*funcs[])(float b, float n) = {expt_i, expt_lp};
     int len_funcs = sizeof(funcs) / sizeof(funcs[0]);
     
-    float exp = powf(11.0f, 6.0f);
+    float param1[] = {2.0f, 11.0f, 20.0f}, param2[] = {3.0f, 6.0f, 10.0f};
+    
+    int len_param1 = sizeof(param1) / sizeof(param1[0]);
+    int len_param2 = sizeof(param2) / sizeof(param2[0]);
+    int len_params = len_param1 * len_param2;
+    float prod_params[len_params][2];
+    
+    cartesian_prod_floats(param1, len_param1, param2, len_param2, prod_params);
     
     for (int i = 0; len_funcs > i; ++i) {
-    	float res = funcs[i](11.0f, 6.0f);
-        ck_assert_msg(in_epsilon(0.001f * exp, &exp, &res), 
-			"exp(%.1f) : res(%.1f)", exp, res);
+        for (int j = 0; len_params > j; ++j) {
+            float exp = powf(prod_params[j][0], prod_params[j][1]);
+            float res = funcs[i](prod_params[j][0], prod_params[j][1]);
+            ck_assert_msg(in_epsilon(0.001f * exp, &exp, &res),
+				"exp(%.1f) : res(%.1f)", exp, res);
+        }
     }
 } END_TEST
 

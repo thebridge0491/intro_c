@@ -47,6 +47,19 @@ void cartesian_prod_ints(const int arr1[], const int len_arr1,
 void cartesian_prod_floats(const float arr1[], const int len_arr1, 
     const float arr2[], const int len_arr2, float prod_arr[][2]); 
 
+int intptr_cmp(const void *a, const void *b);
+int floatptr_cmp(float tolerance, const void *a, const void *b);
+
+void intptr_el_to_str(const void *elem, char **dest);
+void floatptr_el_to_str(const void *elem, char **dest);
+void strcharptr_kv_to_str_void(const void *key, const void *val, char **dest);
+bool strcharptr_kv_to_str_bool(const void *key, const void *val, char **dest);
+
+void mkstring_ptrarray(void (*el_to_str)(const void *elem, char **dest), 
+    int nelts, const void **arr, char **dest);
+void mkstring_ints(int nelts, const int *arr, char **dest);
+void mkstring_floats(int nelts, const float *arr, char **dest);
+
 #ifdef __cplusplus
 }
 #endif
