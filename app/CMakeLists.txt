@@ -63,13 +63,13 @@ set_target_properties(${PROJECT_NAME}_stat PROPERTIES OUTPUT_NAME ${PROJECT_NAME
 
 if(BUILD_TESTING)
 	list(APPEND proj_artifacts ts_main_${PROJECT_NAME})
-	add_executable(ts_main_${PROJECT_NAME} tests/tc_new tests/ts_main)
+	add_executable(ts_main_${PROJECT_NAME} tests/tc_collections tests/ts_main)
 	set_target_properties(ts_main_${PROJECT_NAME} PROPERTIES
 		EXCLUDE_FROM_ALL true OUTPUT_NAME ts_main)
 	# target_compile_definitions(ts_main_${PROJECT_NAME} PRIVATE " ")
 	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
 	target_include_directories(ts_main_${PROJECT_NAME} PRIVATE include)
-	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC -Wl,-rpath,'$ORIGIN/' PRIVATE ${TESTFRWK_LDFLAGS} -L${prefix}/lib -l${PROJECT_PARENT}-util) # -L${PROJECT_BINARY_DIR} -l${PROJECT_NAME}) # -l:lib${PROJECT_NAME}.a
+	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC -Wl,-rpath,'$ORIGIN/' PRIVATE ${TESTFRWK_LDFLAGS} ${GLIB_LDFLAGS} -L${prefix}/lib -l${PROJECT_PARENT}-util) # -L${PROJECT_BINARY_DIR} -l${PROJECT_NAME}) # -l:lib${PROJECT_NAME}.a
 endif(BUILD_TESTING)
 add_executable(${PROJECT_NAME} src/${PROJECT_PARENT}/intro src/${PROJECT_PARENT}/person src/${PROJECT_PARENT}/main)
 set_target_properties(${PROJECT_NAME} PROPERTIES EXCLUDE_FROM_ALL false

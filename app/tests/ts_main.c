@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <check.h>
 
-#include "tc_new.h"
+#include "tc_collections.h"
 
-Suite* (*suite_funcs[])(void) = {tc_new_suite};
+Suite* (*suite_funcs[])(void) = {tc_collections_suite};
 
 int main(int argc, char **argv) {
     int number_failed;
