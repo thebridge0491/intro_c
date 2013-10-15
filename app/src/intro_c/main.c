@@ -1,6 +1,12 @@
 /** @mainpage DocComment: 
  * Introduction, basic syntax/features */
 
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif /* __STDC_VERSION__ */
+
 #include <stdio.h>
 #include <stdlib.h>
 //#include <unistd.h>
@@ -20,6 +26,7 @@
 #include "intro.h"
 #include "intro_c/classic.h"
 #include "intro_c/sequenceops.h"
+#include "intro_c/classic_puzzles.h"
 
 #define OVECCOUNT 30
 
@@ -178,6 +185,54 @@ static void run_intro(const char *progname, char *rsrc_path,
     }
     g_array_free(gint_arr, TRUE);
     free(result);
+    
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+    int n_pascal = 5;
+    int **pascal_arr = pascaltri_add(n_pascal);
+    printf("pascaltri_add(n:%i) : \n", n_pascal);
+    print_pascaltri(n_pascal, (const int**)pascal_arr);
+    
+    if (NULL != pascal_arr)
+        for (int i = 0; n_pascal >= i; ++i)
+            free(pascal_arr[i]);
+    free(pascal_arr);
+    
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+    int ndisks = 4;
+    int len_hanoi = powf(2.0f, ndisks) - 1;
+    int **hanoi_arr = hanoi(1, 2, 3, ndisks);
+    printf("hanoi(src:1, dest:2, spare:3, ndisks:%i) : \n", ndisks);
+    for (int i = 0; len_hanoi > i; ++i) {
+        printf("move #%.2i: move from %i to %i\n", i + 1, hanoi_arr[i][0], 
+            hanoi_arr[i][1]);
+    }
+    for (int i = 0; len_hanoi > i; ++i)
+        free(hanoi_arr[i]);
+    free(hanoi_arr);
+    
+    printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
+    int numqueens = 8, queens_ndx = (rand() / (float)RAND_MAX) * 50;
+    int *nqueens_arr = nqueens(queens_ndx, numqueens);
+    
+    printf("nqueens(ndx:%i, numqueens:%i) : \n", queens_ndx, numqueens);
+    printf("{");
+    
+    for (int r = 0; numqueens > r; ++r)
+        printf("(%c, %i), ", 'a' + r, nqueens_arr[r]);
+    printf("}\n");
+    
+    for (int r = 0; numqueens > r; ++r, putchar('\n')) {
+        printf("\'%i\'", numqueens - 1 - r);
+        for (int c = 0; numqueens > c; ++c)
+            printf("\'%c\'", ((numqueens - 1 - r) == nqueens_arr[c]) ? 'Q' : 
+                '.');
+    }
+    printf("\' \'");
+    for (int c = 0; numqueens > c; ++c)
+        printf("\'%c\'", 'a' + c);
+    printf("\n\n");
+    
+    free(nqueens_arr);
     
     printf("%s\n", string_replicate(40, "#", len_repeat, buf_repeat));
     char buf[80];

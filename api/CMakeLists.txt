@@ -35,7 +35,7 @@ file(COPY ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/resources DESTINAT
 set(proj_artifacts ${PROJECT_NAME} ${PROJECT_NAME}_stat)
 
 
-add_library(objapi OBJECT src/${PROJECT_PARENT}/classic src/${PROJECT_PARENT}/sequenceops)
+add_library(objapi OBJECT src/${PROJECT_PARENT}/classic src/${PROJECT_PARENT}/sequenceops src/${PROJECT_PARENT}/classic_puzzles)
 set_target_properties(objapi PROPERTIES POSITION_INDEPENDENT_CODE 1)
 # target_compile_definitions(objapi PRIVATE " ")
 target_compile_options(objapi PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${GLIB_CFLAGS} ${LOG4C_CFLAGS})
