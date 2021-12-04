@@ -8,10 +8,23 @@ def create_symlink(target_str, link_str) {
 		java.nio.file.Files.createSymbolicLink(link.toPath(), target.toPath())
 }
 
+task config_pcfile {
+	description "Configure pkg-config file [-Pprefix='${prefix}']"
+	def cmdLn = "sed s|@prefix@|${prefix}| " + 
+		"${projectDir}/src/${project.name}.pc.in"
+	doLast {
+		if ((new File("${projectDir}/src/${project.name}.pc.in")).exists())
+			exec { ignoreExitValue true
+				commandLine cmdLn.split()
+				standardOutput = new FileOutputStream("${buildDir}/lib/pkgconfig/${project.name}.pc")
+			}
+	}
+}
+
 task pre_install {
 	description 'Perform preliminary install steps'
 	def osName = System.getProperty('os.name').toLowerCase()
-	def ver_major = project.version.split(/\./)[0]
+	def (somajor, sominor, sopatch) = project.version.split(/\./) // split(/\./) or tokenize('.')
 	doLast {
 		"${buildDir}/bin ${buildDir}/lib/pkgconfig ${buildDir}/share/doc/${project.name}".split().each { mkdir it }
 		def taskBin = 
@@ -22,7 +35,8 @@ task pre_install {
 			tasks.findByName("link${project.name.capitalize()}SharedLibrary")
 		
 		if (taskBin)
-			copy { into "${buildDir}/bin" ; from taskBin.binaryFile.orNull }
+			//copy { into "${buildDir}/bin" ; from taskBin.binaryFile.orNull }
+			copy { into "${buildDir}/bin" ; from taskBin.linkedFile.orNull }
 		if (taskLibStat)
 			copy { into "${buildDir}/lib"
 				from taskLibStat.outputs.files.files[0] }
@@ -30,33 +44,37 @@ task pre_install {
 			if (osName.contains('darwin') || osName.contains('mac')) {
 				def target = "lib${project.name}.${project.version}.dylib"
 				copy { into "${buildDir}/lib"
-					from taskLibDyn.binaryFile.orNull
+					//from taskLibDyn.binaryFile.orNull
+					from taskLibDyn.linkedFile.orNull
 					rename { fNm -> target } }
 				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.${somajor}.dylib")
+				create_symlink("${buildDir}/lib/lib${project.name}.${somajor}.dylib",
 					"${buildDir}/lib/lib${project.name}.dylib")
-				create_symlink("${buildDir}/lib/${target}",
-					"${buildDir}/lib/lib${project.name}.${ver_major}.dylib")
 			} else {
 				def target = "lib${project.name}.so.${project.version}"
 				copy { into "${buildDir}/lib"
-					from taskLibDyn.binaryFile.orNull
+					//from taskLibDyn.binaryFile.orNull
+					from taskLibDyn.linkedFile.orNull
 					rename { fNm -> target } }
 				create_symlink("${buildDir}/lib/${target}",
+					"${buildDir}/lib/lib${project.name}.so.${somajor}")
+				create_symlink("${buildDir}/lib/lib${project.name}.so.${somajor}",
 					"${buildDir}/lib/lib${project.name}.so")
-				create_symlink("${buildDir}/lib/${target}",
-					"${buildDir}/lib/lib${project.name}.so.${ver_major}")
 			}
 	}
 }
 
-assemble.finalizedBy([pre_install])
+assemble.finalizedBy([config_pcfile, pre_install])
 
 task uninstall(dependsOn: assemble) {
 	description "Uninstall artifacts [-Pprefix='${prefix}']"
 	def destdir = System.env.DESTDIR ? System.env.DESTDIR : ''
 	def installfiles = fileTree(dir: "${destdir}${prefix}",
 		includes: ["bin/${project.name}", "lib/lib${project.name}*.*",
-		"lib/pkgconfig/${project.name}.pc"]).files + ["${destdir}${prefix}/share/doc/${project.name}"]
+		"lib/pkgconfig/${project.name}.pc"]).files + 
+		["${destdir}${prefix}/share/doc/${project.name}"] + 
+		(fileTree(dir: projectDir, includes: ["include/**/*"]).files.collect { e -> "${destdir}${prefix}/" + relativePath(e) })
 		
 	doLast {
 		//delete installfiles
@@ -72,28 +90,19 @@ task uninstall(dependsOn: assemble) {
 	}
 }
 
-task config_pcfile {
-	description "Configure pkg-config file [-Pprefix='${prefix}']"
-	def cmdLn = "sed s|@prefix@|${prefix}| " + 
-		"${projectDir}/src/${project.name}.pc.in"
-	doLast {
-		if ((new File("${projectDir}/src/${project.name}.pc.in")).exists())
-			exec { ignoreExitValue true
-				commandLine cmdLn.split()
-				standardOutput = new FileOutputStream("${buildDir}/lib/pkgconfig/${project.name}.pc")
-			}
-	}
-}
-
-task install(dependsOn: [assemble, config_pcfile]) {
+task install(dependsOn: assemble) {
 	description "Install artifacts [-Pprefix='${prefix}']"
 	def destdir = System.env.DESTDIR ? System.env.DESTDIR : ''
 	doLast {
 		copy { into "${destdir}${prefix}"
-			from projectDir ; include 'include/'
-			from buildDir { include 'bin/' ; include 'lib/'
+			from(projectDir) { include 'include/' }
+			from(buildDir) { include 'bin/' ; include 'lib/'
 				include 'share/' }
 		}
+        exec { ignoreExitValue true
+		    commandLine "sh", "-xc", "pkgconf --with-path=${prefix}/lib/pkgconfig --list-all | grep ${project.name}"
+		}
+		//exec_output("sh -xc 'pkgconf --with-path=${prefix}/lib/pkgconfig --list-all | grep ${project.name}' || true")
 	}
 }
 

@@ -4,38 +4,46 @@ class SharedVars
   attr_accessor :cppflags, :ldflags, :cflags, :asflags, :arflags, :ldlibs
 end
 
-if 'Darwin' == `sh -c 'uname -s 2>/dev/null || echo not'`.chomp
-  SHLIBEXT = 'dylib'
-else
-  SHLIBEXT = 'so'
-  ENV['LDFLAGS'] = "#{ENV['LDFLAGS']} -Wl,--enable-new-dtags"
-end
-
-if '1' == DEBUG
-  ENV['CPPFLAGS'] = "#{ENV['CPPFLAGS']} -DDEBUG -UNDEBUG "
-  ENV['LDFLAGS'] = "#{ENV['LDFLAGS']} --coverage "
-  ENV['CFLAGS'] = "#{ENV['CFLAGS']} -g3 -O0 --coverage "
-else
-  ENV['CPPFLAGS'] = "#{ENV['CPPFLAGS']} -DNDEBUG -UDEBUG "
-  ENV['CFLAGS'] = "#{ENV['CFLAGS']} -O3 "
-end
-
 CC = 'clang'
-ver_major = VARS.version.split('.')[0]
+somajor = VARS.version.split('.')[0]
+sominor = VARS.version.split('.')[1]
 
 rule '.a' do |t| 
   sh "ar #{VARS.arflags} #{t.name} #{t.prerequisites.join(' ')}"
 end
-rule '.so' do |t| 
-  sh "#{LINK_c.call(VARS, t)} -fPIC -shared -Wl,-soname,#{File.basename(t.name)}.#{ver_major} -o #{t.name}.#{VARS.version} #{VARS.ldlibs}" || true
-  symlink("#{File.basename(t.name)}.#{VARS.version}", "#{t.name}.#{ver_major}",
-    :force => true) || true
-  symlink("#{File.basename(t.name)}.#{VARS.version}", "#{t.name}", :force => true) || true
-end
-rule '.dylib' do |t| 
-  sh "#{LINK_c.call(VARS, t)} -fPIC -dynamiclib -undefined suppress -flat_namespace -Wl,-install_name,@rpath/#{File.basename(t.name).sub(/dylib/, '#{ver_major}.dylib')},-current_version,#{VARS.version},-compatibility_version,#{VARS.version} -o #{t.name.sub(/dylib/, '#{VARS.version}.dylib')} #{VARS.ldlibs}" || true
-  symlink("#{t.name.sub(/dylib/, '#{VARS.version}.dylib')}", "#{t.name.sub(/dylib/, '#{ver_major}.dylib')}", :force => true) || true
-  symlink("#{t.name.sub(/dylib/, '#{VARS.version}.dylib')}", "#{t.name}", :force => true) || true
+#task :symlink_shlib do
+#  if "dylib" == "#{SOSUFFIX}"
+#    ln_s("lib#{VARS.proj}.#{somajor}.dylib", "lib/lib#{VARS.proj}.dylib",
+#      :force => true) || true
+#    ln_s("lib#{VARS.proj}.#{VARS.version}.dylib",
+#      "lib/lib#{VARS.proj}.#{somajor}.dylib", :force => true) || true
+#  else
+#    ln_s("lib#{VARS.proj}.so.#{somajor}", "lib/lib#{VARS.proj}.so",
+#      :force => true) || true
+#    ln_s("lib#{VARS.proj}.so.#{VARS.version}",
+#      "lib/lib#{VARS.proj}.so.#{somajor}", :force => true) || true
+#  end
+#end
+SYMLINK_SHLIB = lambda { |v, t|
+  if "dylib" == "#{SOSUFFIX}"
+    ln_s("{File.basename(t.name).sub(/dylib/, '#{somajor}.dylib')}",
+      t.name, :force => true) || true
+    ln_s("{File.basename(t.name).sub(/dylib/, '#{v.version}.dylib')}",
+      "#{t.name.sub(/dylib/, '#{somajor}.dylib')}", :force => true) || true
+  else
+    ln_s("#{File.basename(t.name)}.#{somajor}", t.name, :force => true) || true
+    ln_s("#{File.basename(t.name)}.#{v.version}", "#{t.name}.#{somajor}",
+      :force => true) || true
+  end
+}
+rule ".#{SOSUFFIX}" do |t| 
+  #task(:symlink_shlib).invoke
+  SYMLINK_SHLIB.call(VARS, t)
+  if "dylib" == "#{SOSUFFIX}"
+    sh "#{LINK_c.call(VARS, t)} -fPIC -dynamiclib -undefined suppress -flat_namespace -Wl,-install_name,@rpath/#{File.basename(t.name).sub(/dylib/, '#{somajor}.dylib')},-current_version,#{VARS.version},-compatibility_version,#{somajor}.#{sominor}.0 -o #{t.name.sub(/dylib/, '#{VARS.version}.dylib')} #{VARS.ldlibs}" || true
+  else
+    sh "#{LINK_c.call(VARS, t)} -fPIC -shared -Wl,-soname,#{File.basename(t.name)}.#{somajor} -o #{t.name}.#{VARS.version} #{VARS.ldlibs}" || true
+  end
 end
 
 LINK_o = lambda { |v, t| 

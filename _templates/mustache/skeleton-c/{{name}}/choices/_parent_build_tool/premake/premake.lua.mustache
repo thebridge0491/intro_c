@@ -1,8 +1,8 @@
 #!/usr/bin/env lua
 
--- Multi-package project premake4.lua script.
+-- Multi-package project premake.lua script.
 if path.getbasename(_WORKING_DIR) ~= "build" then
-	printf("Error: cd build ; premake4 --file=../premake4.lua gmake")
+	printf("Error: cd build ; premake --file=../premake.lua gmake")
 	os.exit(EXIT_FAILURE)
 end
 
@@ -12,13 +12,13 @@ newoption { trigger = "buildtest", value = "ON",
 	allowed = { { "ON", "Enable build test" }, { "OFF", "Disable build test" } },
 	description = "Build test(s)"}
 
-newoption { trigger = "fmts", value = "tar.gz",
+newoption { trigger = "fmts", value = "tar.gz,zip",
 	description = "Select archive format(s)"}
 newoption { trigger = "subdirs", value = "common,app",
 	description = "Subdirectories to target"}
 
 local parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
-local version = "0.1.0"
+local version = "{{version}}{{^version}}0.1.0{{/version}}"
 local subdirs = string.explode(_OPTIONS["subdirs"] or "common,app", ",")
 
 newaction { trigger = "help", description = "Help - displays targets",
@@ -47,7 +47,7 @@ if "ON" == (_OPTIONS["buildtest"] or "ON") then
 			for _, e in ipairs(subdirs) do
 				assert(os.isdir(e), "Non-existent directory: " .. e)
 				printf("### subdir: %s ###", e)
-				os.execute(string.format("cd %s ; LD_LIBRARY_PATH=%s:lib ./ts_main %s",
+				os.execute(string.format("cd %s ; LD_LIBRARY_PATH=%s:lib tests/ts_main %s",
 					e, os.getenv("LD_LIBRARY_PATH") or "",
 					#_ARGS ~= 0 and table.concat(_ARGS, " ") or ""))
 			end
@@ -60,8 +60,8 @@ newaction { trigger = "uninstall", description = "Uninstall subdir(s) artifacts"
 		for _, e in ipairs(subdirs) do
 			assert(os.isdir(e), "Non-existent directory: " .. e)
 			printf("### subdir: %s ###", e)
-			os.execute(string.format("rm -i %s/include/%s-*/*.*",
-				_OPTIONS["prefix"] or "/usr/local", parent))
+			os.execute(string.format("(cd % ; find include -type f -exec rm -i \"%s/{}\" \\;)",
+				e, _OPTIONS["prefix"] or "/usr/local"))
 			os.execute(string.format("rm -i %s/lib/*%s-*.*", 
 				_OPTIONS["prefix"] or "/usr/local", parent))
 			os.execute(string.format("rm -i %s/lib/pkgconfig/%s-*.pc", 
@@ -88,7 +88,7 @@ newaction { trigger = "install", description = "Install subdir(s) artifacts",
 	end
 }
 
-newaction { trigger = "dist", description = "Create project source archive(s)",
+newaction { trigger = "package", description = "Create project source archive(s)",
 	execute = function ()
 		distdir = string.format("%s-%s", parent, version)
 		os.copyfile(path.getdirectory(_WORKING_DIR) .. "/exclude.lst", ".")
@@ -102,8 +102,11 @@ newaction { trigger = "dist", description = "Create project source archive(s)",
 			path.getdirectory(_WORKING_DIR), 
 			path.getdirectory(_WORKING_DIR), distdir))
 		
-		for _, fmt in ipairs(string.explode(_OPTIONS["fmts"] or "tar.gz", " ")) do
-			if fmt == "zip" then
+		for _, fmt in ipairs(string.explode(_OPTIONS["fmts"] or "tar.gz,zip", ",")) do
+			if fmt == "7z" then
+				os.execute(string.format("rm -f %s ; 7za a -t7z -mx=9 %s %s",
+					distdir .. ".7z", distdir .. ".7z", distdir))
+			elseif fmt == "zip" then
 				os.execute(string.format("rm -f %s ; zip -9 -q -r %s %s",
 					distdir .. ".zip", distdir .. ".zip", distdir))
 			else

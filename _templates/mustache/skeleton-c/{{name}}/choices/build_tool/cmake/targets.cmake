@@ -6,17 +6,20 @@ if(BUILD_TESTING)
 		#COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ts_main_${PROJECT_NAME}
 		COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_BINARY_DIR} ts_main_${PROJECT_NAME})
 	add_test(NAME test_${PROJECT_NAME}
-		COMMAND ${PROJECT_BINARY_DIR}/ts_main || true)
+		COMMAND ${PROJECT_BINARY_DIR}/tests/ts_main || true)
 	set_tests_properties(test_${PROJECT_NAME} PROPERTIES
 		DEPENDS buildtest_${PROJECT_NAME})
+	set_property(TEST test_${PROJECT_NAME} APPEND PROPERTY ENVIRONMENT LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib)
 endif(BUILD_TESTING)
 
 if(NOT CPACK_FOUND)
-	if(NOT DEFINED CPACK_SOURCE_GENERATOR)
+	if(NOT CPACK_SOURCE_GENERATOR)
 		set(CPACK_SOURCE_GENERATOR TGZ ZIP)
 	endif()
 	set(CPACK_SOURCE_PACKAGE_FILE_NAME ${PROJECT_NAME}-${PROJECT_VERSION})
-	set(CPACK_SOURCE_IGNORE_FILES "\\\\.svn/;\\\\.git/;\\\\.hg/;\\\\.DS_Store;\\\\.log;.*~;\\\\.s$;\\\\.so$;temp/;build/;dist/")
+	include(CPack RESULT_VARIABLE CPACK_FOUND)
+	set(CPack_CMake_INCLUDED 0)
+	list(APPEND CPACK_SOURCE_IGNORE_FILES build/ dist/ temp/ \\\\.log$ \\\\.s$ \\\\.so$ .*~ \\\\.DS_Store$)
 	include(CPack RESULT_VARIABLE CPACK_FOUND)
 endif(NOT CPACK_FOUND)
 

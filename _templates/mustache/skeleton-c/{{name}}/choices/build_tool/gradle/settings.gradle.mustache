@@ -1,3 +1,8 @@
+import org.apache.tools.ant.DirectoryScanner
+
+DirectoryScanner.removeDefaultExclude('**/.gitignore')
+DirectoryScanner.removeDefaultExclude('**/.hgignore')
+
 startParameter.offline = true
 
 rootProject.name = '{{name}}{{^name}}intro_c-util{{/name}}'

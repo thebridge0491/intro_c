@@ -1,0 +1,171 @@
+# Single package meson.build script.
+project('{{parent}}{{^parent}}intro_c{{/parent}}-{{project}}{{^project}}util{{/project}}', 'c', version: '{{version}}{{^version}}0.1.0{{/version}}', license: '{{license}}{{^license}}Apache-2.0{{/license}}',
+	default_options: ['buildtype=release', 'b_coverage=false']) # c[pp] objc[pp] fortran java cs rust vala
+parent = '{{parent}}{{^parent}}intro_c{{/parent}}'
+prefix = get_option('prefix')
+
+libs_depns = [dependency('libpcre'), dependency('glib-2.0'){{#executable}},
+	dependency('log4c'), dependency('yaml-0.1'), dependency('yajl'),
+	dependency('json-c'){{/executable}}]
+
+includes = include_directories('include'{{#executable}}, '../src'{{/executable}})
+
+{{#executable}}'''{{/executable}}
+libstat = static_library(meson.project_name(), [f'src/@parent@/{{project}}{{^project}}util{{/project}}.c'],
+	include_directories: includes, dependencies: libs_depns, install: true)
+#libstat = static_library(meson.project_name(), [f'src/@parent@/{{project}}{{^project}}util{{/project}}.c',
+#	f'src/@parent@/classic_asm.s', f'src/@parent@/classic_f90.s'],
+#	include_directories: includes, dependencies: libs_depns, install: true)
+libdyn = shared_library(meson.project_name(), [f'src/@parent@/{{project}}{{^project}}util{{/project}}.c'],
+	include_directories: includes, dependencies: libs_depns,
+	build_rpath: f'$ORIGIN/:@prefix@/lib',
+	install_rpath: f'$ORIGIN/:@prefix@/lib',
+	version: meson.project_version(), install: true)
+#libdyn = shared_library(meson.project_name(), [f'src/@parent@/{{project}}{{^project}}util{{/project}}.c',
+#	f'src/@parent@/classic_asm.s', f'src/@parent@/classic_f90.s'],
+#	include_directories: includes, dependencies: libs_depns, 
+#	build_rpath: f'$ORIGIN/:@prefix@/lib',
+#	install_rpath: f'$ORIGIN/:@prefix@/lib',
+#	version: meson.project_version(), install: true)
+
+install_headers([f'include/@parent@/{{project}}{{^project}}util{{/project}}.h'], subdir: parent)
+#install_headers([f'include/@parent@/{{project}}{{^project}}util{{/project}}.h', f'include/@parent@/classic_asm.h',
+#	f'include/@parent@/classic_f90.h', f'include/@parent@/classic_c.h'], subdir: parent)
+
+pkg_mod = import('pkgconfig')
+pkg_mod.generate(name: '{{parent}}{{^parent}}intro_c{{/parent}}-{{project}}{{^project}}util{{/project}}', install_dir: f'@prefix@/lib/pkgconfig',
+	description: '{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}',
+	url: f'https://{{repohost}}{{^repohost}}bitbucket.org{{/repohost}}/{{repoacct}}{{^repoacct}}imcomputer{{/repoacct}}/@parent@',
+	version: meson.project_version(),
+	requires_private: ['libpcre', 'glib-2.0'], libraries_private: [''],
+	requires: [''], extra_cflags: [''], libraries: [libdyn],
+	variables: ['exec_prefix=${prefix}'], filebase: meson.project_name(),
+)
+{{#executable}}'''{{/executable}}
+{{#executable}}
+main = executable(meson.project_name(), [f'src/@parent@/{{project}}{{^project}}util{{/project}}.c', f'src/@parent@/person.c',
+	f'src/@parent@/main.c'],
+	include_directories: includes, dependencies: libs_depns,
+	link_with: [], link_args: [],
+	build_rpath: f'$ORIGIN/:@prefix@/lib',
+	#install_rpath: f'$ORIGIN/:@prefix@/lib'
+)
+{{/executable}}
+
+if 'ON' == get_option('buildtest')
+	ts_main = executable('ts_main', ['tests/ts_main.c', 'tests/tc_new.c'],
+		include_directories: includes, dependencies: [dependency('{{testfrwk}}{{^testfrwk}}check{{/testfrwk}}')],
+		link_with: [{{^executable}}libdyn{{/executable}}], link_args: [],
+		build_rpath: f'$ORIGIN/:@prefix@/lib',
+		#install_rpath: f'$ORIGIN/:@prefix@/lib',
+		build_by_default: false)
+	
+	# meson configure -Dopts='' <dir> ; meson test -C <dir>
+    # in file meson_options.txt:
+    #   option('opts', type: 'string', value: '', description: 'Cmd-line options')
+	test('test_@0@'.format(meson.project_name()), ts_main, 
+		args: get_option('opts').split())
+endif
+
+tar_opts = ['--format=posix', '--dereference', '--exclude-from',
+	'@0@/exclude.lst'.format(meson.current_source_dir())]
+zip_opts = ['-9', '--exclude', '@@0@/exclude.lst'.format(
+	meson.current_source_dir()), '-r']
+distdir = meson.project_name() + '-' + meson.project_version()
+
+#pre_dist = custom_target(distdir, command: ['sh', '-xc',
+#	'rm -fr @BUILD_ROOT@/@OUTPUT@ ; mkdir -p @BUILD_ROOT@/@OUTPUT@ ; zip @0@ - . | unzip -od @BUILD_ROOT@/@OUTPUT@ -'.format(' '.join(zip_opts))],
+#	output: [distdir], input: [])
+pre_dist = custom_target(distdir, command: ['sh', '-xc',
+	'rm -fr @BUILD_ROOT@/@OUTPUT@ ; mkdir -p @BUILD_ROOT@/@OUTPUT@ ; tar @0@ -C .. -cf - . | tar -xpf - -C @BUILD_ROOT@/@OUTPUT@'.format(' '.join(tar_opts))],
+	output: [distdir], input: [])
+
+# meson configure -Dfmts='tar.gz,zip' <dir> ; meson compile -C <dir> package
+# in file meson_options.txt:
+#   option('fmts', type: 'array', value: ['tar.gz', 'zip'], description: 'Archive format -- decides compression algorithm')
+fmt_extns = ''
+foreach e : get_option('fmts')
+	fmt_extns = fmt_extns + e + ' '
+endforeach
+custom_target('package', command: ['sh', '-xc'] +
+	['''FMTS=${FMTS:-@0@}
+	for fmt in `echo $FMTS | tr ',' ' '` ; do
+	  case $fmt in
+	    7z) echo "### @1@.7z ###" ;
+	      rm -f @1@.7z ;
+	      7za a -t7z -mx=9 @1@.7z @1@ ;;
+	    zip) echo "### @1@.zip ###" ;
+	      rm -f @1@.zip ;
+	      zip -9 -q -r @1@.zip @1@ ;;
+	    *) echo "### @1@.$fmt ###" ;
+	      rm -f @1@.$fmt ;
+	      tar --posix -L -caf @1@.$fmt @1@ ;;
+	  esac
+	done'''.format(fmt_extns, distdir)],
+	output: ['package'], input: [pre_dist])
+
+doxygen = find_program('doxygen', required: false)
+if doxygen.found()
+	custom_target('doc', command: ['cd', '@BUILD_ROOT@', '&&',
+		doxygen, '@CURRENT_SOURCE_DIR@/Doxyfile_c.txt'],
+		output: ['doc'], input: [])
+endif
+
+cppcheck = find_program('cppcheck', required: false)
+if cppcheck.found()
+	custom_target('lint', command: ['cd', '@CURRENT_SOURCE_DIR@', '&&',
+		cppcheck, '--quiet', '--enable=all', '--report-progress', '--force',
+		'--std=c99', '--std=posix', '-Iinclude', '-Isrc', '--project=' + join_paths(
+		meson.build_root(), 'compile_commands.json'), join_paths(
+		meson.current_source_dir(), 'src')], output: ['lint'], input: [])
+endif
+
+lcov = find_program('lcov', required: false)
+genhtml = find_program('genhtml', required: false)
+if lcov.found() and genhtml.found()
+	custom_target('report', command: ['cd', '@BUILD_ROOT@', '&&',
+		lcov.path(), '-c', '-d', '.', '-o', '.coverage', '--gcov-tool',
+		'@CURRENT_SOURCE_DIR@/llvm-gcov.sh', '&&', genhtml.path(),
+		'-o', 'cov', '.coverage'], output: ['report'], input: [])
+endif
+{{#executable}}
+
+# meson configure -Dopts='' <dir> ; meson compile -C <dir> run
+# in file meson_options.txt:
+#   option('opts', type: 'string', value: '', description: 'Cmd-line options')
+##run_target('run', command: ['@0@/@1@'.format(meson.current_build_dir(),
+##	meson.project_name())] + get_option('opts').split())
+custom_target('run', command: ['env', 'LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib',
+	'./' + meson.project_name()] + get_option('opts').split(), output: ['run'], input: [])
+
+# lldb ; ddd --gdb ; gdb
+debugger = find_program('ddd', required: false)
+if debugger.found()
+	##run_target('debug', command: [debugger, '--gdb', 
+	##	'@0@/@1@'.format(meson.current_build_dir(),
+	##	meson.project_name())] + get_option('opts').split())
+	custom_target('debug', command: ['env', 'LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib'] +
+		debugger.split() + [meson.project_name()] + get_option('opts').split(),
+		output: ['debug'], input: [])
+endif
+
+# valgrind tools: memcheck helgrind cachegrind massif lackey
+valgrind = find_program('valgrind', required: false)
+if valgrind.found()
+	##run_target('valgrind', command: [valgrind, '--verbose', '--tool=memcheck', 
+	##	'@0@/@1@'.format(meson.current_build_dir(),
+	##	meson.project_name())])
+	custom_target('valgrind', command: ['env', 'LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib'] +
+		valgrind.split() + [meson.project_name()], output: ['valgrind'], input: [])
+endif
+{{/executable}}
+
+#custom_target('classicffi_asm_s', command: ['cc', '-Iinclude', '-Isrc', 
+#	'-Wall', '-pedantic', '-std=c99', '-m64', '-S', '-masm=att', '-fPIC', -x',
+#	'c', '-o', '@BUILD_ROOT@/src/@parent@/classic_asm.s',
+#	'@CURRENT_SOURCE_DIR@/src/@parent@/classic_asm.c.bak',
+#	'&&', 'cc', '-Iinclude', '-Isrc', '-Wall', '-pedantic', '-std=f2003', 
+#	'-m64', '-S', '-masm=att', '-fPIC', -x', 'f95', '-o', 
+#	'@BUILD_ROOT@/src/@parent@/classic_f90.s',
+#	'@CURRENT_SOURCE_DIR@/src/@parent@/classic_f90.f90.bak'],
+#	output: ['classicffi_asm_s'], input: [])

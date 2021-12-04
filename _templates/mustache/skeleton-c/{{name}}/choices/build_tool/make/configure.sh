@@ -5,11 +5,18 @@ srcdir=..
 vpath=..
 debug=0
 
-if ! [ build = `basename $PWD` ] ; then
-	echo ; echo "ERROR: cd build ; [sh] ../configure.sh [OPTIONS]" ;
+if [ build = `basename $PWD` ] ; then
+	echo ; echo "ERROR: [sh] ./configure.sh [OPTIONS]" ;
 	echo ; exit 1 ;
 fi
+if [ "`uname -s 2>/dev/null || echo not`" = "Darwin" ] ; then
+  sosuffix=dylib
+else
+  sosuffix=so
+  LDFLAGS="$LDFLAGS -Wl,--enable-new-dtags"
+fi
 
+mkdir -p build
 for opt in "$@" ; do
 	case $opt in
 	--prefix=) ;;
@@ -19,7 +26,7 @@ for opt in "$@" ; do
 	--enable-debug) debug=1 ;;
 	--disable-debug) debug=0 ;;
 	--help)
-		echo "Usage: cd build ; [sh] ../configure.sh [OPTIONS]" ;
+		echo "Usage: [sh] ./configure.sh [OPTIONS]" ;
 		echo "options:" ;
 		echo "  --prefix=[${prefix}]: installation prefix" ;
 		echo "  --srcdir=[${srcdir}]: source code directory" ;
@@ -29,20 +36,32 @@ for opt in "$@" ; do
 	esac
 done
 
-echo "configuring Makefile ..."
-cat << EOF > Makefile
+echo "configuring build/Makefile ..."
+cat << EOF > build/Makefile
 .POSIX:
 .SUFFIXES:
 PREFIX = $prefix
 VPATH = $vpath
+sosuffix = $sosuffix
 
 EOF
 if [ 1 = $debug ] ; then
-	cat << EOF >> Makefile ;
+	cat << EOF >> build/Makefile ;
 DEBUG = $debug
+
+CPPFLAGS = $CPPFLAGS -DDEBUG -UNDEBUG
+CFLAGS = $CFLAGS -g3 -O0 --coverage
+LDFLAGS = $LDFLAGS --coverage
+
+EOF
+else
+	cat << EOF >> build/Makefile ;
+CPPFLAGS = $CPPFLAGS -DNDEBUG -UDEBUG
+CFLAGS = $CFLAGS -O3
+LDFLAGS = $LDFLAGS
 
 EOF
 fi
-cat ../Makefile.new >> Makefile
+cat Makefile.new >> build/Makefile
 
-echo "Finished configuring, for help: make help"
+echo "Finished configuring, for help: make -C build help"

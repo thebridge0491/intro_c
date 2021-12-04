@@ -41,39 +41,41 @@ if '__main__' == __name__:
 		}
 	nesteddirs = "{{nesteddirs}}{{^nesteddirs}}intro_c/util{{/nesteddirs}}"
 	parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
-	
-	if choices['testfrwk'] in ['check', 'cunit']:
-		copy_pathlist(glob.glob('build/choices/testfrwk/{0}/*'.format(
-			choices['testfrwk'])), ".")
-	else: # default: check
-		copy_pathlist(glob.glob('build/choices/testfrwk/check/*'),
-			".")
-	
-	if 'yes' != choices['executable']:
-		remove_pathlist(glob.glob("src/{0}/main.*".format(
-			parent)))
-
-	if choices['ffilib'] in ['native']:
-		copy_pathlist(glob.glob('build/choices/ffi_lib/{0}/*'.format(
-			choices['ffilib'])), "src/{0}/".format(parent))
 
 	copy_pathlist(glob.glob('build/choices/readme/README{0}'.format(
 		choices['readmeext'])), 'README{0}'.format(choices['readmeext']))
-	copy_pathlist(glob.glob('build/choices/_parent_readme/README{0}'.format(
-		choices['readmeext'])), 'build/choices/_parent_init/README{0}'.format(
-		choices['readmeext']))
+	if os.path.exists('build/choices/_parent_readme'):
+		copy_pathlist(glob.glob('build/choices/_parent_readme/README{0}'.format(
+			choices['readmeext'])), 'build/choices/_parent_init/README{0}'.format(
+			choices['readmeext']))
 
-	if choices['license'] in ['Apache-2.0', 'MIT', 'BSD-3-Clause', 
-			'GPL-3.0+', 'ISC', 'Unlicense']:
+	if choices['license'] in ['Apache-2.0', 'MIT', 'BSD-3-Clause', 'GPL-3.0+', 'ISC',
+			'Unlicense']:
 		copy_pathlist(glob.glob('build/choices/license/LICENSE_{0}'.format(
 			choices['license'])), 'LICENSE')
 
-	if choices['buildtool'] in ['cmake', 'autotools', 'make', 'scons', 'rake',
-			'premake', 'gradle']:
+	if os.path.exists('build/choices/build_tool') and choices['buildtool'] in ['cmake',
+			'meson', 'autotools', 'premake', 'make', 'ninja', 'rake', 'scons', 'gradle']:
 		copy_pathlist(glob.glob('build/choices/build_tool/{0}/*'.format(
 			choices['buildtool'])), '.')
-	else: # default: cmake
+	elif os.path.exists('build/choices/build_tool'): # default: cmake
 		copy_pathlist(glob.glob('build/choices/build_tool/cmake/*'), '.')
+	
+	if os.path.exists('build/choices/testfrwk') and choices['testfrwk'] in ['check',
+			'cunit']:
+		copy_pathlist(glob.glob('build/choices/testfrwk/{0}/*'.format(
+			choices['testfrwk'])), ".")
+	elif os.path.exists('build/choices/testfrwk'): # default: check
+		copy_pathlist(glob.glob('build/choices/testfrwk/check/*'),
+			".")
+	
+	if os.path.exists("src/{0}".format(parent)) and 'yes' != choices['executable']:
+		remove_pathlist(glob.glob("src/{0}/main.*".format(
+			parent)))
+
+	if os.path.exists('build/choices/ffi_lib') and choices['ffilib'] in ['native']:
+		copy_pathlist(glob.glob('build/choices/ffi_lib/{0}/*'.format(
+			choices['ffilib'])), "src/{0}/".format(parent))
 	
 	if os.path.exists('../_templates') and os.path.isdir('../_templates'):
 		skeletondir = {{#skeletondir}}'{{skeletondir}}'{{/skeletondir}}{{^skeletondir}}'{0}/Templates/mustache/skeleton-c'.format(os.getenv('HOME')){{/skeletondir}}

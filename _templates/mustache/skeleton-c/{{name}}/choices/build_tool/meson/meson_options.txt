@@ -1,0 +1,3 @@
+option('buildtest', type: 'string', value: 'ON', description: 'Enable/disable compile test(s)')
+option('opts', type: 'string', value: '', description: 'Cmd-line options')
+option('fmts', type: 'array', value: ['tar.gz', 'zip'], description: 'Archive format -- decides compression algorithm')

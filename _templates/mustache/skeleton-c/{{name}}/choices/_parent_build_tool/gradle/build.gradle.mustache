@@ -5,19 +5,16 @@ plugins {
 rootProject.description = '{{parentdescription}}{{^parentdescription}}Multi-package project Intro examples for C.{{/parentdescription}}'
 //gradle.startParameter.offline = true
 
-//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.gitignore')
-//org.apache.tools.ant.DirectoryScanner.removeDefaultExclude('**/.hgignore')
-
-version = '0.1.0'
+version = '{{version}}{{^version}}0.1.0{{/version}}'
 
 tasks.withType(Tar) {
 	description description + " [-Ptarext='${tarext}']"
 	switch (tarext) {
-		case 'tar': compression = Compression.NONE ; extension = 'tar'
+		case 'tar': compression = Compression.NONE ; archiveExtension = 'tar'
 			break
-		case 'tar.bz2': compression = Compression.BZIP2 ; extension = 'tar.bz2'
+		case 'tar.bz2': compression = Compression.BZIP2 ; archiveExtension = 'tar.bz2'
 			break
-		default: compression = Compression.GZIP ; extension = 'tar.gz'
+		default: compression = Compression.GZIP ; archiveExtension = 'tar.gz'
 			break
 	}
 }
@@ -27,9 +24,7 @@ assembleDist {
 }
 
 distributions {
-	ant.defaultexcludes remove: '**/.hgignore'
-	ant.defaultexcludes remove: '**/.gitignore'
-	main { baseName = rootProject.name
+	main { distributionBaseName = rootProject.name
 		contents {
 			//from '.' { include '**/*.gradle', '**/src/' }
 			from '.' { exclude (new File('exclude.lst') as String[])

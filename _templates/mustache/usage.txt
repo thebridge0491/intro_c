@@ -1,0 +1,73 @@
+Templates for initializing project structure.
+
+Install packages for chosen rendering script:
+  
+  (ruby) gem install [--user-install] mustache
+  
+  [(groovy) grape install com.github.spullara.mustache.java compiler '[0.8.12,)']
+
+  (groovy) grape install com.github.jknack handlebars '[4.1.3,)'
+  
+  (python) pip install [--user] [pystache] chevron
+
+Example usage:
+  
+  ruby render_mustache.rb [--data data.yaml] skeleton-c [date=2013-10-01]
+  
+  groovy render_mustache.groovy [--data data.yaml] skeleton-c [--kvset date=2013-10-01]
+  
+  python render_mustache.py [--data data.yaml] skeleton-c [--kvset date=2013-10-01]
+
+  #resulting project structure
+  
+  echo #---------- ; tree -aF --dirsfirst --matchdirs -I build intro_c-util
+
+#----------
+intro_c-util
+|-- include/
+|   `-- intro_c/
+|       |-- classic_asm.h
+|       |-- classic_c.h
+|       |-- classic_f90.h
+|       `-- util.h
+|-- resources/
+|   |-- greet.txt
+|   |-- log4crc.xml
+|   `-- prac.{conf,json,toml,xml,yaml}
+|-- src/
+|   |-- intro_c/
+|   |   |-- person.{h,c}
+|   |   `-- util.c
+|   `-- intro_c-util.pc.in
+|-- tests/
+|   |-- tc_classic.{h,c}
+|   |-- tc_new.{h,c}
+|   `-- ts_main.c
+|-- .editorconfig
+|-- .{git,hg}ignore
+|-- CMakeLists.txt
+|-- Doxyfile_c.txt
+|-- LICENSE
+|-- PreLoad.cmake.bak
+|-- README.rst
+|-- exclude.lst
+|-- llvm-gcov.sh
+|-- targets-uninstall.cmake.in
+`-- targets.cmake
+
+6 directories, 32 files
+  
+  python render_mustache.py skeleton-simple
+  
+  echo #---------- ; tree -aF --dirsfirst --matchdirs -I build simple-project
+
+#----------
+simple-project
+|-- .editorconfig
+|-- .{git,hg}ignore
+|-- LICENSE
+|-- README.rst
+|-- exclude.lst
+`-- vcs_bkup.sh
+
+0 directories, 7 files

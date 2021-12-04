@@ -1,0 +1,52 @@
+#!/bin/sh
+
+mkdir -p build ; cp -R choices build/
+rm -r choices
+
+proj_dir=`pwd`
+readmeext={{readmeext}}{{^readmeext}}.rst{{/readmeext}}
+license={{license}}{{^license}}Apache-2.0{{/license}}
+buildtool={{buildtool}}{{^buildtool}}cmake{{/buildtool}}
+testfrwk={{testfrwk}}{{^testfrwk}}check{{/testfrwk}}
+executable={{executable}}{{^executable}}no{{/executable}}
+ffilib={{ffilib}}{{^ffilib}}none{{/ffilib}}
+
+parent={{parent}}{{^parent}}intro_c{{/parent}}
+
+cp build/choices/readme/README${readmeext} README${readmeext}
+if [ -d build/choices/_parent_readme ] ; then
+    cp build/choices/_parent_readme/README${readmeext} \
+	    build/choices/_parent_init/README${readmeext} ;
+fi
+
+if [ ! 'Not open source' = "${license}" ] ; then
+    cp build/choices/license/LICENSE_${license} LICENSE ;
+fi
+
+if [ -d build/choices/build_tool ] && [ ! 'cmake' = "${buildtool}" ] ; then
+	cp -R build/choices/build_tool/${buildtool}/* . ;
+elif [ -d build/choices/build_tool ] ; then # default: cmake
+	cp -R build/choices/build_tool/cmake/* . ;
+fi
+
+if [ -d build/choices/testfrwk ] && [ ! "check" = "${testfrwk}" ] ; then
+	cp -R build/choices/testfrwk/${testfrwk}/* . ;
+elif [ -d build/choices/testfrwk ] ; then # default: check
+	cp -R build/choices/testfrwk/check/* . ;
+fi
+
+if [ -d src/${parent} ] && [ ! "yes" = "${executable}" ] ; then
+    rm src/${parent}/main.* ;
+fi
+
+if [ -d build/choices/ffi_lib ] && [ '' = "$(echo "${ffilib}" | grep -E 'none')" ] ; then
+	cp -R build/choices/ffi_lib/${ffilib}/* src/${parent}/ ;
+fi
+
+if [ -d '../_templates' ] ; then
+	skeletondir={{skeletondir}}{{^skeletondir}}$HOME/Templates/mustache/skeleton-c{{/skeletondir}} ;
+	skel_pardir=`dirname ${skeletondir}` ;
+	rm -fr ../_templates/mustache/`basename ${skeletondir}` ;
+	mkdir -p ../_templates/mustache ;
+	cp -R ${skel_pardir}/render_mustache.* ${skeletondir} ../_templates/mustache/ ;
+fi

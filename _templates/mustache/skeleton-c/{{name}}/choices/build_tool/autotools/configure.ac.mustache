@@ -13,9 +13,9 @@ AM_INIT_AUTOMAKE([1.12 silent-rules subdir-objects -Wall tar-pax dist-zip foreig
 
 AC_CANONICAL_BUILD
 case $build in
-	*-darwin*) AC_SUBST([SHLIBEXT], [dylib])
+	*-darwin*) AC_SUBST([SOSUFFIX], [dylib])
 			is_darwin=true ;;
-	*) AC_SUBST([SHLIBEXT], [so]) ;;
+	*) AC_SUBST([SOSUFFIX], [so]) ;;
 esac
 AM_CONDITIONAL([DARWIN], [test x$is_darwin = xtrue])
 

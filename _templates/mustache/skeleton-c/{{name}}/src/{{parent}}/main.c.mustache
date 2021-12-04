@@ -66,7 +66,19 @@ void parse_cmdopts(struct opts_record *opts, int argc, char **argv) {
         fprintf(stderr, "Unexpected argument after options\n");
 }
 
-static int chk_inidata(GKeyFile *cfg_ini, const char *buf_ini, 
+static int chk_inifile(GKeyFile *cfg_ini, const char *file_ini, 
+		GKeyFileFlags flags) {
+    GError *error = NULL;
+    
+    if (!g_key_file_load_from_file(cfg_ini, file_ini, flags, &error)) {
+		g_error("%s", error->message);
+		g_error_free(error);
+		return -1;
+	}
+    return 0;
+}
+
+static int chk_inistr(GKeyFile *cfg_ini, const char *buf_ini, 
 		GKeyFileFlags flags) {
     GError *error = NULL;
     
@@ -78,6 +90,97 @@ static int chk_inidata(GKeyFile *cfg_ini, const char *buf_ini,
 	}
     return 0;
 }
+
+static int yamltokens_to_list(yaml_parser_t *yamlparser, GData **datalist) {
+	char *name_block = "default", *keyX = "default", *tk;
+	char buf_tmp[256];
+	int is_value = 0;
+	yaml_token_t token_yaml;
+	do {
+		yaml_parser_scan(yamlparser, &token_yaml);
+		
+		switch (token_yaml.type) {
+			// Stream start/end
+			//case YAML_STREAM_START_TOKEN: break;
+			//case YAML_STREAM_END_TOKEN: break;
+			// Token types (read before actual token)
+			case YAML_KEY_TOKEN: is_value = 0; break;
+			case YAML_VALUE_TOKEN: is_value = 1; break;
+			// Block delimeters
+			//case YAML_BLOCK_SEQUENCE_START_TOKEN: break;
+			//case YAML_BLOCK_ENTRY_TOKEN: break;
+			//case YAML_BLOCK_END_TOKEN: break;
+			// Data
+			case YAML_BLOCK_MAPPING_START_TOKEN: 
+				if (1 == is_value)
+					name_block = strdup(keyX);
+				break;
+			case YAML_SCALAR_TOKEN: 
+				tk = token_yaml.data.scalar.value;
+				if (0 == is_value) {
+					keyX = strdup(tk);
+				} else {
+					snprintf(buf_tmp, sizeof(buf_tmp), "%s:%s", name_block, keyX);
+					g_datalist_set_data(datalist, strdup(buf_tmp), strdup(tk));
+				}
+				break;
+			// Others
+			//default: 
+		}
+		if (YAML_STREAM_END_TOKEN != token_yaml.type)
+			yaml_token_delete(&token_yaml);
+	} while (YAML_STREAM_END_TOKEN != token_yaml.type);
+	yaml_token_delete(&token_yaml);
+	
+	return 0;
+}
+
+static int yamlevents_to_list(yaml_parser_t *yamlparser, GData **datalist) {
+	char *name_block = "default", *keyX = "default", *tk;
+	char buf_tmp[256];
+	int is_key = 1;
+	yaml_event_t event_yaml;
+	do {
+		if (!yaml_parser_parse(yamlparser, &event_yaml)) {
+			printf("Parser error %d\n", yamlparser->error);
+			exit(EXIT_FAILURE);
+		}
+
+		switch (event_yaml.type) { 
+			//case YAML_NO_EVENT: break;
+			// Stream start/end
+			//case YAML_STREAM_START_EVENT: break;
+			//case YAML_STREAM_END_EVENT: break;
+			// Block delimeters
+			//case YAML_DOCUMENT_START_EVENT: break;
+			//case YAML_DOCUMENT_END_EVENT: break;
+			//case YAML_SEQUENCE_START_EVENT: break;
+			//case YAML_SEQUENCE_END_EVENT: break;
+			case YAML_MAPPING_START_EVENT:
+				name_block = strdup(keyX); is_key = 1; break;
+			case YAML_MAPPING_END_EVENT: is_key = 1; break;
+			// Data
+			//case YAML_ALIAS_EVENT: break;
+			case YAML_SCALAR_EVENT:
+				tk = event_yaml.data.scalar.value;
+				if (1 == is_key) {
+					keyX = strdup(tk);
+					is_key = 0;
+				} else {
+					snprintf(buf_tmp, sizeof(buf_tmp), "%s:%s", name_block, keyX);
+					g_datalist_set_data(datalist, strdup(buf_tmp), strdup(tk));
+					is_key = 1;
+				}
+				break;
+		}
+		if (YAML_STREAM_END_EVENT != event_yaml.type)
+			yaml_event_delete(&event_yaml);
+	} while (YAML_STREAM_END_EVENT != event_yaml.type);
+	yaml_event_delete(&event_yaml);
+	
+	return 0;
+}
+
 
 /** DocComment: <p>
  * Brief description. <p>
@@ -110,7 +213,8 @@ int main(int argc, char **argv) {
 	else {
 		fread(buf_ini, sizeof(buf_ini[0]), sizeof(buf_ini), fIn);
 		
-		if (chk_inidata(cfg_ini, buf_ini, G_KEY_FILE_KEEP_COMMENTS)) {
+		if (chk_inifile(cfg_ini, rc_buf, G_KEY_FILE_KEEP_COMMENTS)) {
+		//if (chk_inistr(cfg_ini, buf_ini, G_KEY_FILE_KEEP_COMMENTS)) {
 			g_key_file_free(cfg_ini);
 		} else {
 			row_ini[0] = inicfg_to_str(cfg_ini);
@@ -179,50 +283,20 @@ int main(int argc, char **argv) {
 	else {
 		fread(buf_yaml, sizeof(buf_yaml[0]), sizeof(buf_yaml), fIn);
 		yaml_parser_t yamlparser;
-		yaml_token_t token_yaml;
+		
 		if (!yaml_parser_initialize(&yamlparser))
 			fprintf(stderr, "Failure: Yaml parser initialization failed\n");
 		else {
-			yaml_parser_set_input_string(&yamlparser, buf_yaml,
-				sizeof(buf_yaml) / sizeof(buf_yaml[0]));
-			char *name_block = "default", *tk, *keyX, *valX, **data_ptr;
-			char buf_tmp[256];
-			int is_value = 0;
+			yaml_parser_set_input_string(&yamlparser, buf_yaml, strlen(buf_yaml));
 			GData *datalist = NULL;
 			g_datalist_init(&datalist);
 			
-			do {
-				yaml_parser_scan(&yamlparser, &token_yaml);
-				
-				switch(token_yaml.type) {
-					case YAML_KEY_TOKEN:
-						is_value = 0;
-					case YAML_VALUE_TOKEN:
-						is_value = 1;
-					case YAML_SCALAR_TOKEN:
-						tk = token_yaml.data.scalar.value;
-						if (0 == is_value) {
-							keyX = strdup(tk);
-						} else {
-							snprintf(buf_tmp, sizeof(buf_tmp), "%s:%s",
-								name_block, keyX);
-							g_datalist_set_data(datalist, strdup(buf_tmp),
-								strdup(tk));
-						}
-					case YAML_BLOCK_SEQUENCE_START_TOKEN:
-						tk = token_yaml.data.scalar.value;
-						name_block = strdup(tk);
-					default:
-						break;
-				}
-				if (NULL == token_yaml.type || YAML_STREAM_END_TOKEN != token_yaml.type)
-					yaml_token_delete(&token_yaml);
-			} while (NULL != token_yaml.type && YAML_STREAM_END_TOKEN != token_yaml.type);
-			yaml_token_delete(&token_yaml);
+			//yamlevents_to_list(&yamlparser, &datalist);
+			yamltokens_to_list(&yamlparser, &datalist);
 			
 			row_yaml[0] = buf_yaml;
-			row_yaml[1] = g_datalist_get_data(datalist, "default:domain");
-			row_yaml[2] = g_datalist_get_data(datalist, "user1:name");
+			row_yaml[1] = g_datalist_get_data(&datalist, "default:domain");
+			row_yaml[2] = g_datalist_get_data(&datalist, "user1:name");
 			
 			yaml_parser_delete(&yamlparser);
 		}

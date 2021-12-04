@@ -9,80 +9,66 @@ parent = {{parent}}{{^parent}}intro_c{{/parent}}
 proj = $(parent)-$(pkg)
 namespace_path = $(shell echo $(parent) | sed 'y|.|/|')
 version = {{version}}{{^version}}0.1.0{{/version}}
-ver_major = $(shell echo $(version) | cut -d'.' -f1)
+somajor = $(shell echo $(version) | cut -d'.' -f1)
+sominor = $(shell echo $(version) | cut -d'.' -f2)
 
-ifeq ($(shell sh -c 'uname -s 2>/dev/null || echo not'),Darwin)
-shlibext = dylib
-else
-shlibext = so
-LDFLAGS := $(LDFLAGS) -Wl,--enable-new-dtags
-endif
-
-ifdef DEBUG
-CPPFLAGS := $(CPPFLAGS) -DDEBUG -UNDEBUG
-LDFLAGS := $(LDFLAGS) --coverage
-CFLAGS := $(CFLAGS) -g3 -O0 --coverage
-else
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG -UDEBUG
-CFLAGS := $(CFLAGS) -O3
-endif
-
-link_libs = libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}
-CPPFLAGS := $(CPPFLAGS) -Iinclude -I../src $(shell $(PKG_CONFIG) --cflags-only-I $(link_libs))
-LDFLAGS := $(LDFLAGS) -Wl,-rpath,'$$ORIGIN/' -Llib $(shell $(PKG_CONFIG) --libs-only-L $(link_libs))
-CFLAGS := $(CFLAGS) -Wall -pedantic -std=c99 -m64 $(shell $(PKG_CONFIG) --cflags-only-other $(link_libs))
-#ASFLAGS := $(ASFLAGS) -Iinclude $(shell $(PKG_CONFIG) --cflags-only-I $(link_libs))
+libs_depns = libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}
+CC = clang
+CPPFLAGS := $(CPPFLAGS) -Iinclude -I../src $(shell $(PKG_CONFIG) --cflags-only-I $(libs_depns))
+CFLAGS := $(CFLAGS) -Wall -pedantic -std=c99 -m64 $(shell $(PKG_CONFIG) --cflags-only-other $(libs_depns))
+#ASFLAGS := $(ASFLAGS) -Iinclude $(shell $(PKG_CONFIG) --cflags-only-I $(libs_depns))
 ARFLAGS = rvcs
-LDLIBS := $(LDLIBS) $(shell $(PKG_CONFIG) --libs-only-other --libs-only-l $(link_libs)) # -lm # -l:libm.a
+LDFLAGS := $(LDFLAGS) -Wl,-rpath,'$$ORIGIN/:$(PREFIX)/lib' -Llib $(shell $(PKG_CONFIG) --libs-only-L $(libs_depns))
+LDLIBS := $(LDLIBS) $(shell $(PKG_CONFIG) --libs-only-other --libs-only-l $(libs_depns)) # -lm # -l:libm.a
 
 {{#executable}}
-src_c = $(shell cd .. ; ls src/**/*.c src/*.c)
-#objs = $(src_c:.c=.o)
+src_c = $(shell ls ../src/**/*.c)
+#objs = $($(patsubst ../%,%,src_c):.c=.o)
 {{/executable}}
 {{^executable}}
-src_c = $(shell cd .. ; ls src/**/*.c src/*.c)
-#src_c = *.s $(shell cd .. ; ls src/**/*.c src/*.c)
-objs = $(src_c:.c=.o)
-#objs = $(src_c:.s=.o) $(src_c:.c=.o)
+#src_c = src/${parent}/*.s $(shell ls ../src/**/*.c)
+src_c = $(shell ls ../src/**/*.c)
+#objs = $($(patsubst ../%,%,src_c):.s=.o) $($(patsubst ../%.%,src_c):.c=.o)
+objs = $($(patsubst ../%,%,src_c):.c=.o)
 {{/executable}}
 
 CFLAGS := $(CFLAGS) $(shell $(PKG_CONFIG) --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}})
-ldlibs_test = $(shell $(PKG_CONFIG) --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}){{^executable}} -l$(proj){{/executable}}
-#tests_c = $(patsubst ../%,%,$(wildcard ../tests/**/*.c ../tests/*.c))
-tests_c = $(shell cd .. ; ls tests/**/*.c tests/*.c)
+#tests_c = $(patsubst ../%,../%,$(wildcard ../tests/**.c))
+tests_c = $(shell ls ../tests/**.c)
 
-.depend:
+.depend: $(src_c) $(tests_c)
 	-@mkdir -p bin lib/pkgconfig share/doc/$(proj)
 	-@cd .. ; find src tests -type d -exec mkdir -p $$OLDPWD/{} \;
 	-cp -fR ../include ../resources .
-	{{^executable}}
-	-rm -fr lib/pkgconfig/$(proj).pc
+	-@rm -fr lib/pkgconfig/$(proj).pc
 	-sed "s|@prefix@|$(PREFIX)|" ../src/$(proj).pc.in > lib/pkgconfig/$(proj).pc
-	{{/executable}}
-#	-@echo '' > .depend ; cd .. ; makedepend -Y -f- -- $(CPPFLAGS) -- $(src_c) >> $$OLDPWD/.depend
+#	-@echo '' > .depend ; cd .. ; makedepend -Y -f $$OLDPWD/.depend -- $(CPPFLAGS) -- $(src_c)
 	-@echo '' > .depend
-	-@cd .. ; $(CC) $(CPPFLAGS) -MM $(src_c) $(tests_c) >> $$OLDPWD/.depend
+	-@for f in $(src_c) $(tests_c) ; do \
+	  $(CC) $(CPPFLAGS) -MM $$f >> $@ ; \
+	done
+#	-@$(CC) $(CPPFLAGS) -MMD -MF $$OLDPWD/.depend $(src_c) $(tests_c)
 
 {{#executable}}
-#lib/lib$(proj).$(shlibext) : $(src_c)
+#lib/lib$(proj).$(sosuffix) : $(src_c)
 
 bin/$(proj) : $(src_c)
 	-$(LINK.c) $^ -o $@ $(LDLIBS)
 {{/executable}}
 {{^executable}}
-lib/lib$(proj).$(shlibext) : $(src_c)
+lib/lib$(proj).$(sosuffix) : $(src_c)
 {{/executable}}
 
 tests/ts_main : $(tests_c)
-	-$(LINK.c) $^ -o $@ $(ldlibs_test)
+	-$(LINK.c) $^ $(shell $(PKG_CONFIG) --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}){{^executable}} -l$(proj){{/executable}} -o $@
 
 .PHONY: all testCompile{{#executable}} run debug valgrind{{/executable}}
 {{#executable}}
-#all: .depend lib/lib$(proj).a($(objs)) lib/lib$(proj).$(shlibext) ## compile
+#all: .depend lib/lib$(proj).a($(objs)) lib/lib$(proj).$(sosuffix) ## compile
 all: .depend bin/$(proj) ## compile
 {{/executable}}
 {{^executable}}
-all: .depend lib/lib$(proj).a($(objs)) lib/lib$(proj).$(shlibext) ## compile
+all: .depend lib/lib$(proj).a($(objs)) lib/lib$(proj).$(sosuffix) ## compile
 {{/executable}}
 testCompile: tests/ts_main ## compile test
 {{#executable}}
@@ -103,8 +89,8 @@ valgrind: bin/$(proj) ## valgrind main
 
 #classicffi_asm_s : ../src/$(parent)/classic_asm.c.bak ../src/$(parent)/classic_f90.f90.bak
 #	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC \
-#		-x c -o classic_asm.s ../src/${parent}/classic_asm.c.bak
+#		-x c -o src/${parent}/classic_asm.s ../src/${parent}/classic_asm.c.bak
 #	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC \
-#		-x f95 -o classic_f90.s ../src/${parent}/classic_f90.f90.bak
+#		-x f95 -o src/${parent}/classic_f90.s ../src/${parent}/classic_f90.f90.bak
 
 -include .depend ../Makefile-targets.mk

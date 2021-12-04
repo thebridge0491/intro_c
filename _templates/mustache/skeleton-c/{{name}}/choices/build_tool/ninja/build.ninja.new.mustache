@@ -1,0 +1,135 @@
+# Single package build.ninja script.
+ninja_required_version = 1.5
+
+#rootdir = ..
+#builddir = .
+
+CC = $${CC:-clang}
+AR = $${AR:-ar}
+PKG_CONFIG = pkg-config --with-path=${PREFIX}/lib/pkgconfig
+
+pkg = {{project}}{{^project}}util{{/project}}
+parent = {{parent}}{{^parent}}intro_c{{/parent}}
+proj = ${parent}-${pkg}
+namespace_path = $$(echo ${parent} | sed 'y|.|/|')
+version = {{version}}{{^version}}0.1.0{{/version}}
+somajor = $$(echo $version | cut -d'.' -f1)
+sominor = $$(echo $version | cut -d'.' -f2)
+
+include ../rules-c.ninja
+include ../build-targets.ninja
+
+libs_depns = libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}
+CPPFLAGS = $${DEFAULT_CPPFLAGS} -Iinclude -I../src $$(${PKG_CONFIG} --cflags-only-I ${libs_depns})
+CFLAGS = $${DEFAULT_CFLAGS} -Wall -pedantic -std=c99 -m64 $$(${PKG_CONFIG} --cflags-only-other ${libs_depns})
+#ASFLAGS = $${ASFLAGS} -Iinclude $$(${PKG_CONFIG} --cflags-only-I ${libs_depns})
+ARFLAGS = rvcs
+LDFLAGS = $${DEFAULT_LDFLAGS} -Wl,-rpath,'$$ORIGIN/:${PREFIX}/lib' -L. -Llib $$(${PKG_CONFIG} --libs-only-L ${libs_depns})
+# -lm # -l:libm.a
+LDLIBS = $${LDLIBS} $$(${PKG_CONFIG} --libs-only-other --libs-only-l ${libs_depns})
+
+build .depend: custom_cmd
+  DESC = Set up buildir & generate .depend file
+  COMMAND = $
+    input=$$(find ../src ../tests -type f -name '*.c') ; $
+    mkdir -p bin lib/pkgconfig share/doc/${proj} ; $
+    $$(cd .. ; find src tests -type d -exec mkdir -p $$OLDPWD/{} \;) ; $
+    cp -fR ../include ../resources . ; $
+    {{^executable}}
+    rm -fr lib/pkgconfig/${proj}.pc ; $
+    sed "s|@prefix@|${PREFIX}|" ../src/${proj}.pc.in > lib/pkgconfig/${proj}.pc ; $
+    {{/executable}}
+    echo '' > .depend ; $
+    for inX in $${input} ; do $
+      $CC $CPPFLAGS -MM $$inX >> .depend ; $
+    done
+#    $$(cd .. ; $CC $CPPFLAGS -MM $${input} -MF $$OLDPWD/.depend)
+
+{{^executable}}
+#build src/${parent}/${pkg}.c.o: compile_c ../src/${parent}/{{project}}{{^project}}util{{/project}}.c || .depend
+#build objs: compile_c || .depend classicffi_asm_s
+build objs: compile_c || .depend
+  #INPUT = $$(find $$PWD/src -type f -name '*.s') $$(cd .. ; find src -type f -name '*.c')
+  INPUT = $$(cd .. ; find src -type f -name '*.c')
+  CFLAGS = ${CFLAGS} -fPIC
+
+#build lib/lib${proj}.a: archive_o src/${parent}/{{project}}{{^project}}util{{/project}}.c.o
+build lib/lib${proj}.a: archive_o || objs
+  INPUT = $$(find src -type f -name '*.o')
+
+#build lib/lib${proj}.${sosuffix}: link_shlib src/${parent}/{{project}}{{^project}}util{{/project}}.c.o
+build lib/lib${proj}.${sosuffix}: link_shlib || objs symlink_shlib
+  INPUT = $$(find src -type f -name '*.o')
+  CFLAGS = ${CFLAGS} -fPIC
+
+build symlink_shlib: custom_cmd
+  DESC = Create shared library symlinks
+  COMMAND = $
+    shlib=lib/lib${proj}.${sosuffix} ; $
+    if [ "dylib" = "${sosuffix}" ] ; then $
+      ln -sf $$(basename $$(echo $$shlib | sed 's|dylib|${somajor}.dylib|')) $$shlib ; $
+      ln -sf $$(basename $$(echo $$shlib | sed 's|dylib|${version}.dylib|')) $$(echo $$shlib | sed 's|dylib|${somajor}.dylib|') ; $
+    else $
+      ln -sf $$(basename $${shlib}.${somajor}) $$shlib ; $
+      ln -sf $$(basename $${shlib}.${version}) $${shlib}.${somajor} ; $
+    fi
+{{/executable}}
+{{#executable}}
+#build bin/${proj}: link_c ../src/${parent}/{{project}}{{^project}}util{{/project}}.c ../src/${parent}/person.c ../src/${parent}/main.c || .depend
+build bin/${proj}: link_c || .depend
+  INPUT = $$(find ../src -type f -name '*.c')
+{{/executable}}
+
+##build tests/tc_new.c.o tests/ts_main.c.o: compile_c ../tests/tc_new.c ../tests/ts_main.c || .depend
+#build objs_tests: compile_c || .depend
+#  INPUT = $$(cd .. ; find tests -type f -name '*.c')
+#  CFLAGS = ${CFLAGS} $$(${PKG_CONFIG} --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}})
+
+#build tests/ts_main: link_o || objs_tests
+#  INPUT = $$(find tests -type f -name '*.o')
+#  LDLIBS = ${LDLIBS} $$(${PKG_CONFIG} --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}){{^executable}} -l${proj}{{/executable}}
+
+#build tests/ts_main: link_c ../tests/tc_new.c ../tests/ts_main.c || .depend
+build tests/ts_main: link_c || .depend
+  INPUT = $$(find ../tests -type f -name '*.c')
+  CFLAGS = ${CFLAGS} $$(${PKG_CONFIG} --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}})
+  LDLIBS = ${LDLIBS} $$(${PKG_CONFIG} --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}){{^executable}} -l${proj}{{/executable}}
+
+build all: phony {{^executable}}lib/lib${proj}.a lib/lib${proj}.${sosuffix}{{/executable}}{{#executable}}bin/${proj}{{/executable}}
+
+build testCompile: phony tests/ts_main
+{{#executable}}
+
+# lldb | ddd --gdb | gdb
+debugger = ddd --gdb
+# valgrind tools: memcheck helgrind cachegrind massif lackey
+valgrind = valgrind --verbose --tool=memcheck
+
+build run: custom_cmd || bin/${proj}
+  DESC = Run main [ARGS=$${ARGS:-}]
+  COMMAND = LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib bin/${proj} $${ARGS:-}
+  pool = console
+  restat = 1
+
+build debug: custom_cmd || bin/${proj}
+  DESC = Debug main [ARGS=$${ARGS:-}]
+  COMMAND = LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib ${debugger} bin/${proj} $${ARGS:-}
+  pool = console
+  restat = 1
+
+build valgrind: custom_cmd || bin/${proj}
+  DESC = Valgrind main
+  COMMAND = LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:lib ${valgrind} bin/${proj}
+  pool = console
+  restat = 1
+{{/executable}}
+
+#build src/${parent}/classic_asm.c.bak.s: generate_s ../src/${parent}/classic_asm.c.bak
+#  CFLAGS = ${CFLAGS} -S -masm=att -fPIC -x c
+
+#build src/${parent}/classic_f90.f90.bak.s: generate_s ../src/${parent}/classic_f90.f90.bak
+#  CFLAGS = ${CFLAGS} -S -masm=att -fPIC -x f95 -std=f2003
+
+#build classicffi_asm_s: phony src/${parent}/classic_asm.c.bak.s src/${parent}/classic_f90.f90.bak.s
+
+default help

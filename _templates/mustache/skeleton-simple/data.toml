@@ -1,0 +1,18 @@
+projectregex = "^[a-zA-Z][_a-zA-Z0-9.-]+$"
+project = "simple-project"
+description = "Simple project."
+version = "0.1.0"
+
+repohost = "bitbucket.org"
+repoacct = "imcomputer"
+date = "2012-08-01"
+
+readmeext = ".rst"
+license = "Apache-2.0"
+
+skeletondir = "Templates/mustache/skeleton-simple"
+
+[_choices]
+readmeext = [".rst", ".md", ".adoc"]
+license = ["Apache-2.0", "MIT", "BSD-3-Clause", "GPL-3.0+", "ISC", "Unlicense",
+  "Not open source"]

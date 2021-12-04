@@ -1,5 +1,5 @@
 RAKE = ENV['RAKE'] ? ENV['RAKE'] : 'rake'
-# Single package rakefile script.
+# Single package Rakefile script.
 
 class SharedVars
   attr_accessor :parent, :proj, :version
@@ -9,37 +9,38 @@ class SharedVars
   end
 end
 
+PKG_CONFIG = "pkg-config --with-path=#{PREFIX}/lib/pkgconfig"
+
 VARS = SharedVars.new
 VARS.parent, pkg = '{{parent}}{{^parent}}intro_c{{/parent}}', '{{project}}{{^project}}util{{/project}}'
 VARS.proj, VARS.version = "#{VARS.parent}-#{pkg}", '{{version}}{{^version}}0.1.0{{/version}}'
 namespace_path = VARS.parent.gsub(/\./, '/')
 
-desc "Default target: #{RAKE} help"
-task :default => [:help]
+require "../rakefile-targets.rb"
+require "../rakefile-rules-c.rb"
 
-PKG_CONFIG = "pkg-config --with-path=#{PREFIX}/lib/pkgconfig"
-
-link_libs = 'libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}'
-VARS.cppflags = "#{ENV['CPPFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{link_libs}`"
-VARS.ldflags = "#{ENV['LDFLAGS']} -Wl,-rpath,'$ORIGIN/' -Llib `#{PKG_CONFIG} --libs-only-L #{link_libs}`"
-VARS.cflags = "#{ENV['CFLAGS']} -Wall -pedantic -std=c99 -m64 `#{PKG_CONFIG} --cflags-only-other #{link_libs}`"
-VARS.asflags = "#{ENV['ASFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{link_libs}`"
+libs_depns = 'libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}'
+VARS.cppflags = "#{ENV['CPPFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{libs_depns}`"
+VARS.cflags = "#{ENV['CFLAGS']} -Wall -pedantic -std=c99 -m64 `#{PKG_CONFIG} --cflags-only-other #{libs_depns}`"
+VARS.asflags = "#{ENV['ASFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{libs_depns}`"
 VARS.arflags = 'rvcs'
-VARS.ldlibs = "`#{PKG_CONFIG} --libs-only-other --libs-only-l #{link_libs}`" # -lm # -l:libm.a
+VARS.ldflags = "#{ENV['LDFLAGS']} -Wl,-rpath,'$ORIGIN/:#{PREFIX}/lib' -Llib `#{PKG_CONFIG} --libs-only-L #{libs_depns}`"
+VARS.ldlibs = "`#{PKG_CONFIG} --libs-only-other --libs-only-l #{libs_depns}`" # -lm # -l:libm.a
 
+#src_c = FileList["src/**/*.s", "../src/**/*.c"]
 src_c = FileList["../src/**/*.c"]
-#src_c = FileList["*.s", "../src/**/*.c"]
 
 VARS.cflags += " `#{PKG_CONFIG} --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`"
-ldlibs_test = "`#{PKG_CONFIG} --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`{{#executable}}" #{{/executable}} -l#{VARS.proj}"
 #tests_c = FileList[Dir.glob(File.join("../tests", "**", "*.c"))]
+#tests_c = FileList[Dir.glob('../tests/**/*.c', base: '.')]
 tests_c = FileList["../tests/**/*.c"]
 
 file '.depend' => src_c + tests_c do |t|
   "bin lib/pkgconfig share/doc/#{VARS.proj}".split().each { |i|
     mkdir_p(i) || true }
+  OLDPWD = Dir.pwd
   cd('..') { dirs_found = `find src tests -type d`
-    dirs_found.split("\n").each { |i| mkdir_p('build/' + i) || true } }
+    dirs_found.split("\n").each { |i| mkdir_p("#{OLDPWD}/" + i) || true } }
   cp_r(['../include', '../resources'], '.') || true
   {{^executable}}
   rm_rf("lib/pkgconfig/#{VARS.proj}.pc") || true
@@ -48,13 +49,14 @@ file '.depend' => src_c + tests_c do |t|
       f.write o.gsub(/@prefix@/, "#{PREFIX}") } }
   {{/executable}}
   rm_rf(t.name) || true ; touch(t.name) || true
-  sh "#{CC} #{VARS.cppflags} -MM #{t.prerequisites.join(' ')} >> #{t.name}"
+  t.prerequisites.each{|f| sh "#{CC} #{VARS.cppflags} -MM #{f} >> #{t.name}"}
+  #sh "#{CC} #{VARS.cppflags} -MMD -MF #{t.name} #{t.prerequisites.join(' ')}"
 end
 
 {{#executable}}
 #file "lib/lib#{VARS.proj}.a" => src_c.ext('.o').map { |o| 
 #  o.sub(/\.\.\/+/, '') }
-#file "lib/lib#{VARS.proj}.#{SHLIBEXT}" => src_c
+#file "lib/lib#{VARS.proj}.#{SOSUFFIX}" => src_c
 file "bin/#{VARS.proj}" => src_c do |t|
   sh "#{LINK_c.call(VARS, t)} #{VARS.ldlibs} -o #{t.name} || true"
 end
@@ -62,16 +64,16 @@ end
 {{^executable}}
 file "lib/lib#{VARS.proj}.a" => src_c.ext('.o').map { |o| 
   o.sub(/\.\.\/+/, '') }
-file "lib/lib#{VARS.proj}.#{SHLIBEXT}" => src_c
+file "lib/lib#{VARS.proj}.#{SOSUFFIX}" => src_c
 {{/executable}}
 
 file 'tests/ts_main' => tests_c do |t|
-  sh "#{LINK_c.call(VARS, t)} #{ldlibs_test} -o #{t.name} || true"
+  sh "#{LINK_c.call(VARS, t)} `#{PKG_CONFIG} --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`{{^executable}} -l#{VARS.proj}{{/executable}} -o #{t.name} || true"
 end
 
 desc 'Compile target(s)'
 task :all => ['.depend', {{#executable}}"bin/#{VARS.proj}"{{/executable}}{{^executable}}"lib/lib#{VARS.proj}.a",
-  "lib/lib#{VARS.proj}.#{SHLIBEXT}"{{/executable}}]
+  "lib/lib#{VARS.proj}.#{SOSUFFIX}"{{/executable}}]
 
 desc 'Compile test target'
 task :testCompile => 'tests/ts_main'
@@ -99,9 +101,9 @@ end
 
 #task :classicffi_asm_s => ["../src/#{VARS.parent}/classic_asm.c.bak",
 #    "../src/#{VARS.parent}/classic_f90.f90.bak"] do |t|
-#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o classic_asm.s ../src/#{VARS.parent}/classic_asm.c.bak || true"
-#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o classic_f90.s ../src/#{VARS.parent}/classic_f90.f90.bak || true"
+#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o src/#{VARS.parent}/classic_asm.s ../src/#{VARS.parent}/classic_asm.c.bak || true"
+#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o src/#{VARS.parent}/classic_f90.s ../src/#{VARS.parent}/classic_f90.f90.bak || true"
 #end
 
-require "../rakefile-targets.rb"
-require "../rakefile-rules-c.rb"
+desc "Default target: #{RAKE} help"
+task :default => [:help]

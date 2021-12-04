@@ -4,22 +4,33 @@
 # $* - basename (cur target)  $^ - name(s) (all depns)  $< - name (1st depn)
 # $@ - name (cur target)      $% - archive member name  $? - changed depns
 
-FMTS ?= tar.gz
-distdir = $(proj).$(version)
+FMTS ?= tar.gz,zip
+distdir = $(proj)-$(version)
 
 #LINTOPTS = --enable=information --report-progress --quiet --force --suppress=missingIncludeSystem --std=posix --std=c99 -Iinclude -I../src
 LINTOPTS = --enable=all --report-progress --quiet --force --std=c99 --std=posix -Iinclude -I../src
 
-lib/%.so : 
-	-$(LINK.c) -fPIC -shared -Wl,-soname,$*.so.$(ver_major) $^ -o $@.$(version) $(LDLIBS)
-	-cd lib ; ln -sf $*.so.$(version) $*.so.$(ver_major) \
-		&& ln -sf $*.so.$(version) $*.so
-lib/%.dylib : 
-	-$(LINK.c) -fPIC -dynamiclib -undefined suppress -flat_namespace -Wl,-install_name,@rpath/$*.$(ver_major).dylib,-current_version,$(version),-compatibility_version,$(version) $^ -o lib/$*.$(version).dylib $(LDLIBS)
-	-cd lib ; ln -sf $*.$(version).dylib $*.$(ver_major).dylib \
-		&& ln -sf $*.$(version).dylib $*.dylib
+.PHONY: symlink_shlib
+symlink_shlib: 
+	-@if [ "dylib" = "$(sosuffix)" ] ; then \
+		cd lib ; ln -sf lib$(proj).$(somajor).dylib lib$(proj).dylib \
+			&& ln -sf lib$(proj).$(version).dylib lib$(proj).$(somajor).dylib ; \
+	else \
+		cd lib ; ln -sf lib$(proj).so.$(somajor) lib$(proj).so \
+			&& ln -sf lib$(proj).so.$(version) lib$(proj).so.$(somajor) ; \
+	fi
+lib/%.$(sosuffix) : | symlink_shlib
+	-if [ "dylib" = "$(sosuffix)" ] ; then \
+		$(LINK.c) -fPIC -dynamiclib -undefined suppress -flat_namespace -Wl,-install_name,@rpath/$*.$(somajor).dylib,-current_version,$(version),-compatibility_version,$(somajor).$(sominor).0 $^ -o lib/$*.$(version).dylib $(LDLIBS) ; \
+	else \
+		$(LINK.c) -fPIC -shared -Wl,-soname,$*.so.$(somajor) $^ -o $@.$(version) $(LDLIBS) ; \
+	fi
+$(distdir) : 
+	-@mkdir -p $(distdir) ; cp -f ../exclude.lst .
+#	#-(cd .. ; zip -9 -q --exclude @exclude.lst -r - . | unzip -od $OLDPWD/$(distdir) -)
+	-tar --format=posix --dereference --exclude-from=exclude.lst -C .. -cf - . | tar -xpf - -C $(distdir)
 
-.PHONY: help clean check uninstall install dist doc lint report
+.PHONY: help clean test uninstall install package doc lint report
 help: ## help
 	@echo "##### subproject: $(proj) #####"
 	@echo "Usage: $(MAKE) [target] -- some valid targets:"
@@ -32,26 +43,28 @@ help: ## help
 	done
 clean: ## clean build artifacts
 	-rm -rf ../build/* ../build/.??*
-check: testCompile ## run test [TOPTS=""]
+test: testCompile ## run test [TOPTS=""]
 #	export [DY]LD_LIBRARY_PATH=. # ([da|ba|z]sh Linux)
 #	setenv [DY]LD_LIBRARY_PATH . # (tcsh FreeBSD)
 	-LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):lib tests/ts_main $(TOPTS)
 uninstall install: ## [un]install artifacts
 	-@if [ "uninstall" = "$@" ] ; then \
+		find include -type f -exec rm -i "$(PREFIX)/{}" \; ; \
 		rm -i $(PREFIX)/lib/*$(proj)*.* $(PREFIX)/lib/pkgconfig/$(proj).pc ; \
 		rm -ir $(PREFIX)/share/doc/$(proj) ; rm -i $(PREFIX)/bin/*$(proj)* ; \
-	else cp -fR bin include lib share $(PREFIX)/ ; fi
-dist: ## [FMTS="tar.gz"] archive source code
-	-@mkdir -p $(distdir) ; cp -f ../exclude.lst .
-#	#-(cd .. ; zip -9 -q --exclude @exclude.lst -r - . | unzip -od build/$(distdir) -)
-	-tar --format=posix --dereference --exclude-from=exclude.lst -C .. -cf - . | tar -xpf - -C $(distdir)
-	
+	else cp -fR bin include lib share $(PREFIX)/ ; \
+		sh -xc "$(PKG_CONFIG) --list-all | grep $(proj)" ; \
+	fi
+package: | $(distdir) ## [FMTS="tar.gz,zip"] archive source code
 	-@for fmt in `echo $(FMTS) | tr ',' ' '` ; do \
 		case $$fmt in \
+			7z) echo "### $(distdir).7z ###" ; \
+				rm -f $(distdir).7z ; \
+				7za a -t7z -mx=9 $(distdir).7z $(distdir) ;; \
 			zip) echo "### $(distdir).zip ###" ; \
 				rm -f $(distdir).zip ; \
 				zip -9 -q -r $(distdir).zip $(distdir) ;; \
-			*) tarext=`echo $$fmt | grep -e '^tar$$' -e '^tar.xz$$' -e '^tar.bz2$$' || echo tar.gz` ; \
+			*) tarext=`echo $$fmt | grep -e '^tar$$' -e '^tar.xz$$' -e '^tar.zst$$' -e '^tar.bz2$$' || echo tar.gz` ; \
 				echo "### $(distdir).$$tarext ###" ; \
 				rm -f $(distdir).$$tarext ; \
 				tar --posix -L -caf $(distdir).$$tarext $(distdir) ;; \

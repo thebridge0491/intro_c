@@ -1,8 +1,8 @@
 #!/usr/bin/env lua
 
--- Single package premake4.lua script.
+-- Single package premake.lua script.
 if path.getbasename(_WORKING_DIR) ~= "build" then
-	printf("Error: cd build ; premake4 --file=../premake4.lua gmake")
+	printf("Error: cd build ; premake --file=../premake.lua gmake")
 	os.exit(EXIT_FAILURE)
 end
 
@@ -28,18 +28,19 @@ solution "{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-
 		flags { "Optimize" }
 	location (builddir)
 	targetdir (builddir)
-	language "C" -- C C++
-	linkoptions { "-Wl,-rpath,'$$ORIGIN/'" }
+	language "C" -- C[++] ASM C# F#
+	linkoptions { string.format("-Wl,-rpath,'$$ORIGIN/':%s/lib",
+        _OPTIONS["prefix"] or "/usr/local") }
 	solution().parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
 	solution().version = "{{version}}{{^version}}0.1.0{{/version}}"
-	solution().ver_major = (string.gmatch(solution().version, "[^.]+")())
+	solution().somajor, solution().sominor = string.match(solution().version, "([^.]+)\.([^.]+)")
 	solution().description = "{{description}}{{^description}}Utilities sub-package for C Intro examples project.{{/description}}"
 {{#executable}}--[=[{{/executable}}	
 	project (solution().name:lower())
 		targetdir (builddir .. "/lib")
 		kind "SharedLib"
 		files { "include/**.h", "src/**.c" }
-		-- files { "include/**.h", builddir .. "/*.s", "src/**.c" }
+		-- files { "include/**.h", builddir .. "/src/**.s", "src/**.c" }
 		includedirs { "include", "src" }
 		buildoptions { "`pkg-config --cflags libpcre glib-2.0`" }
 		--links { "pcre", "glib-2.0" }
@@ -52,32 +53,33 @@ solution "{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-
 				"> lib/pkgconfig/%s.pc", _OPTIONS["prefix"] or "/usr/local", 
 				project().basedir, solution().name:lower(), 
 				solution().name:lower()),
-			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o {0}/classic_asm.s {1}/src/{2}/classic_asm.c.bak", builddir, project().basedir, solution().parent),
-			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o {0}/classic_f90.s {1}/src/{2}/classic_f90.f90.bak", builddir, project().basedir, solution().parent)
+			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o {0}/src/{2}/classic_asm.s {1}/src/{2}/classic_asm.c.bak", builddir, project().basedir, solution().parent),
+			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o {0}/src/{2}/classic_f90.s {1}/src/{2}/classic_f90.f90.bak", builddir, project().basedir, solution().parent)
 			}
 		configuration "macosx"
-			linkoptions { string.format("-Wl,-install_name,@rpath/lib%s.%s.dylib,-current_version,%s,-compatibility_version,%s", 
-				project().name, solution().ver_major, solution().version, solution().version) }
+			linkoptions { string.format("-Wl,-install_name,@rpath/lib%s.%s.dylib,-current_version,%s,-compatibility_version,%s.%s.0", 
+				project().name, solution().somajor, solution().version,
+				solution().somajor, solution().sominor) }
 			postbuildcommands {
 				string.format("cd lib ; mv -f lib%s.dylib lib%s.%s.dylib", 
 					project().name, project().name, solution().version),
 				string.format("cd lib ; ln -sf lib%s.%s.dylib lib%s.%s.dylib", 
 					project().name, solution().version, project().name, 
-					solution().ver_major),
+					solution().somajor),
 				string.format("cd lib ; ln -sf lib%s.%s.dylib lib%s.dylib", 
-					project().name, solution().version, project().name)
+					project().name, solution().somajor, project().name)
 			}
 		configuration "linux or bsd"
 			linkoptions { string.format("-Wl,-soname,lib%s.so.%s", 
-				project().name, solution().ver_major) }
+				project().name, solution().somajor) }
 			postbuildcommands {
 				string.format("cd lib ; mv -f lib%s.so lib%s.so.%s", 
 					project().name, project().name, solution().version),
 				string.format("cd lib ; ln -sf lib%s.so.%s lib%s.so.%s", 
 					project().name, solution().version, project().name, 
-					solution().ver_major),
+					solution().somajor),
 				string.format("cd lib ; ln -sf lib%s.so.%s lib%s.so", 
-					project().name, solution().version, project().name)
+					project().name, solution().somajor, project().name)
 			}
 
 	project (string.format("%s_stat", solution().name:lower()))
@@ -89,18 +91,6 @@ solution "{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-
 		buildoptions { "`pkg-config --cflags libpcre glib-2.0`" }
 		linkoptions { "`pkg-config --libs libpcre glib-2.0`" }
 {{#executable}}]=]{{/executable}}
-	if "ON" == (_OPTIONS["buildtest"] or "ON") then
-		project "ts_main"
-			targetdir (builddir)
-			kind "ConsoleApp"
-			files { "tests/**.h", "tests/**.c" }
-			includedirs { "include" }
-			libdirs { builddir .. "/lib" }
-			buildoptions { "`pkg-config --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`" }
-			linkoptions { "`pkg-config --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`"{{#executable}}--[=[{{/executable}},
-				"-l" .. solution().name:lower() }{{#executable}}]=]}{{/executable}}
-			-- links { solution().name:lower() }
-	end
 {{#executable}}
 	project (solution().name:lower())
 		targetdir (builddir .. "/bin")
@@ -114,8 +104,20 @@ solution "{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-
 			"mkdir -p bin lib/pkgconfig share/doc/" .. project().name,
 			string.format("cp -fR %s/include %s/resources .",
 				project().basedir, project().basedir) }
-
-
+{{/executable}}
+	if "ON" == (_OPTIONS["buildtest"] or "ON") then
+		project "ts_main"
+			targetdir (builddir .. "/tests")
+			kind "ConsoleApp"
+			files { "tests/**.h", "tests/**.c" }
+			includedirs { "include" }
+			libdirs { builddir .. "/lib" }
+			buildoptions { "`pkg-config --cflags {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`" }
+			linkoptions { "`pkg-config --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}`"{{#executable}}--[=[{{/executable}},
+				"-l" .. solution().name:lower() }{{#executable}}]=]}{{/executable}}
+			-- links { solution().name:lower() }
+	end
+{{#executable}}
 newaction { trigger = "run", description = "Run main app",
 	execute = function ()
 		os.execute(string.format("cd %s ; LD_LIBRARY_PATH=%s:lib bin/%s %s",

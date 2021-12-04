@@ -4,7 +4,7 @@ import os
 topdir = Dir("#").abspath
 
 parent = "{{parent}}{{^parent}}intro_c{{/parent}}"
-version = "0.1.0"
+version = "{{version}}{{^version}}0.1.0{{/version}}"
 
 vars_top = Variables()
 AddOption('--prefix', dest='prefix', nargs=1, type='string', action='store',
@@ -18,17 +18,15 @@ vars_top.AddVariables(
 		'0', allowed_values=['0', '1']),
 	EnumVariable('BUILDTEST', 'Build test with all', 'ON', 
 		allowed_values=['ON', 'OFF']),
-	ListVariable('TOOLS', 'Archive distribution tools', ['tar', 'zip'],
-		['tar', 'zip']),
-	EnumVariable('TARSUFFIX', 'Tar archive suffix (for compression)', 'tar.gz',
-		allowed_values=['tar.gz', 'tar.bz2', 'tar.xz', 'tar.7z', 'tar']),
+	ListVariable('FMTS', 'Archive distribution formats', ['tar.gz', 'zip'],
+		names=['tar', 'tar.gz', 'tar.bz2', 'tar.xz', 'tar.zst', '7z', 'zip']),
 	('SUBDIRS', 'Subdirectories to run targets', 'common,app')
 )
 
 ctx_default = Environment(ENV=os.environ, tools=["default", "packaging"],
 	CC=ARGUMENTS.get("CC", "clang"), CXX=ARGUMENTS.get("CXX", "clang++"),
-	ARFLAGS="rvcs", LINKFLAGS=["-Wl,-rpath,'$$ORIGIN/'"],
-	prefix=GetOption('prefix'), variables=vars_top, 
+	ARFLAGS="rvcs", LINKFLAGS=[("-Wl,-rpath,'$$ORIGIN/:{}/lib'").format(
+	GetOption('prefix'))], prefix=GetOption('prefix'), variables=vars_top, 
 	LD_LIBRARY_PATH=os.environ.get('LD_LIBRARY_PATH', '.'))
 ctx_default.SConsignFile("build/.sconsign")
 ctx_default.Decider("MD5-timestamp")
@@ -74,10 +72,17 @@ package = ctx_top.Package(NAME=parent, VERSION=version, #PACKAGETYPE="src_zip",
 ctx_top.AddPreAction(package, pre_dist)
 ctx_top.AddPostAction(package, post_dist)
 
-dist_tar = ctx_top.Tar("build/{}.{}".format(distdir, ctx_top['TARSUFFIX']), 
-	distdir)
+dist_tar = ctx_top.Tar("build/{}.{}".format(distdir, 'tar'), distdir)
+dist_tarbz2 = ctx_top.Tar("build/{}.{}".format(distdir, 'tar.bz2'), distdir)
+dist_targz = ctx_top.Tar("build/{}.{}".format(distdir, 'tar.gz'), distdir)
+dist_tarxz = ctx_top.Tar("build/{}.{}".format(distdir, 'tar.xz'), distdir)
+dist_tarzst = ctx_top.Tar("build/{}.{}".format(distdir, 'tar.zst'), distdir)
 dist_zip = ctx_top.Zip("build/{}.zip".format(distdir), distdir)
 ctx_top.Alias("dist", [ctx_top.Command("pre_dist", [], pre_dist)] + 
-	([dist_tar] if "tar" in ctx_top['TOOLS'] else []) + 
-	([dist_zip] if "zip" in ctx_top['TOOLS'] else []) + 
+	([dist_tar] if 'tar' in ctx_top['FMTS'] else []) + 
+	([dist_tarbz2] if 'tar.bz2' in ctx_top['FMTS'] else []) + 
+	([dist_targz] if 'tar.gz' in ctx_top['FMTS'] else []) + 
+	([dist_tarxz] if 'tar.xz' in ctx_top['FMTS'] else []) + 
+	([dist_tarzst] if 'tar.zst' in ctx_top['FMTS'] else []) + 
+	([dist_zip] if 'zip' in ctx_top['FMTS'] else []) + 
 	[ctx_top.Command("post_dist", [], post_dist)])

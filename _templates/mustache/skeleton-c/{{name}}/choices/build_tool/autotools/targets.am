@@ -1,6 +1,6 @@
 # Targets automake script.
-AM_CPPFLAGS = -Iinclude -I$(srcdir)/src
-AM_LDFLAGS = -Wl,-rpath,'$$ORIGIN/' -L.libs
+AM_CPPFLAGS = -Iinclude -I$(srcdir)/include -I$(srcdir)/src
+AM_LDFLAGS = -Wl,-rpath,'$$ORIGIN/:$(DESTDIR)$(libdir)' -L.libs
 AM_CFLAGS = -Wall -pedantic -std=c99 -m64
 ARFLAGS = rvcs
 
@@ -42,6 +42,7 @@ clean-local :
 	-mkdir -p .libs share/doc/$(PACKAGE_TARNAME)
 install-data-hook :
 	cp -fR share/* $(DESTDIR)$(datadir)/
+	sh -xc "pkgconf --with-path=$(DESTDIR)$(libdir)/pkgconfig --list-all | grep $(PACKAGE_TARNAME)"
 uninstall-hook :
 	rm -fr $(DESTDIR)$(datadir)/doc/$(PACKAGE_TARNAME)
 dist-hook:

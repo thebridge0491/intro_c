@@ -29,7 +29,7 @@ def choices = [
 	]
 
 def dirX = Paths.get("${System.getProperty('user.dir')}",
-	System.getProperty('toDir', '{{name}}{{^name}}intro_scala-util{{/name}}')).toFile()
+	System.getProperty('toDir', '{{name}}{{^name}}intro_c-util{{/name}}')).toFile()
 def nesteddirs = '{{nesteddirs}}{{^nesteddirs}}intro_c/util{{/nesteddirs}}'
 def parent = '{{parent}}{{^parent}}intro_c{{/parent}}'
 
@@ -37,40 +37,42 @@ def parent = '{{parent}}{{^parent}}intro_c{{/parent}}'
 	cmd -> run_cmd(cmd, dirX) }
 
 run_cmd("cp -v build/choices/readme/README${choices['readmeext']} README${choices['readmeext']}", dirX)
-run_cmd("cp -v build/choices/_parent_readme/README${choices['readmeext']} build/choices/_parent_init/README${choices['readmeext']}", dirX)
+if (Files.exists(Paths.get("build/choices/_parent_readme"))) {
+	run_cmd("cp -v build/choices/_parent_readme/README${choices['readmeext']} build/choices/_parent_init/README${choices['readmeext']}", dirX)
+}
 
 if (choices['license'] in ['Apache-2.0', 'MIT', 'BSD-3-Clause', 'GPL-3.0+', 'ISC', 
 		'Unlicense']) {
 	run_cmd("cp -v build/choices/license/LICENSE_${choices['license']} LICENSE", dirX)
 }
 
-if (choices['buildtool'] in ['cmake', 'autotools', 'make', 'scons', 'rake',
-		'premake', 'gradle']) {
+if (Files.exists(Paths.get("${dirX}/build/choices/build_tool")) && (choices['buildtool'] in ['cmake', 'meson', 'autotools', 'premake', 'make', 'ninja',
+        'rake', 'scons', 'gradle'])) {
 	def files = glob_files("${dirX}/build/choices/build_tool/${choices['buildtool']}")
 	run_cmd("cp -vR ${files.join(' ')} .", dirX)
-} else { // default: cmake
+} else if (Files.exists(Paths.get("${dirX}/build/choices/build_tool"))) { // default: cmake
 	def files = glob_files("${dirX}/build/choices/build_tool/cmake")
 	run_cmd("cp -vR ${files.join(' ')} .", dirX)
 }
 
-if (choices['testfrwk'] in ['check', 'cunit']) {
+if (Files.exists(Paths.get("${dirX}/build/choices/testfrwk")) && (choices['testfrwk'] in ['check', 'cunit'])) {
 	def files = glob_files("${dirX}/build/choices/testfrwk/${choices['testfrwk']}")
 	run_cmd("cp -vR ${files.join(' ')} .", dirX)
-} else { // default: check
+} else if (Files.exists(Paths.get("${dirX}/build/choices/testfrwk"))) { // default: check
 	def files = glob_files("${dirX}/build/choices/testfrwk/check")
 	run_cmd("cp -vR ${files.join(' ')} .", dirX)
 }
 
-if ('yes' != choices['executable']) {
+if (Files.exists(Paths.get("src/${parent}")) && ('yes' != choices['executable'])) {
     run_cmd("rm -vf src/${parent}/main.c", dirX)
 }
 
-if (choices['ffilib'] in ['native']) {
+if (Files.exists(Paths.get("${dirX}/build/choices/ffi_lib")) && (choices['ffilib'] in ['native'])) {
 	def files = glob_files("${dirX}/build/choices/ffi_lib/${choices['ffilib']}")
 	run_cmd("cp -vR ${files.join(' ')} src/${parent}/", dirX)
 }
 
-if (Files.exists(Paths.get("../_templates")) || Files.exists(Paths.get("_templates"))) {
+if (Files.exists(Paths.get("_templates")) && Files.isDirectory(Paths.get("_templates"))) {
 	def skeletondir = '{{skeletondir}}{{^skeletondir}}${System.env["HOME"]}/Templates/mustache/skeleton-c{{/skeletondir}}'
 	def skelParDir = (new File(skeletondir)).parent
 	def scripts = glob_files("${skelParDir}").findAll{f -> 

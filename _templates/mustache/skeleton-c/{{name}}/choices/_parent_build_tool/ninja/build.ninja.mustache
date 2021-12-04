@@ -1,0 +1,133 @@
+# Multi-package project build.ninja script.
+ninja_required_version = 1.5
+
+builddir = build
+
+parent = {{parent}}{{^parent}}intro_c{{/parent}}
+version = {{version}}{{^version}}0.1.0{{/version}}
+SUBDIRS = $${SUBDIRS:-common app}
+FMTS = $${FMTS:-tar.gz,zip}
+distdir = ${parent}-${version}
+
+# Rule for running custom commands.
+rule custom_cmd
+  description = $DESC
+  command = $COMMAND
+
+
+build configure: custom_cmd
+  DESC = Configure build scripts [OPTS="$${OPTS}"]
+  COMMAND = $
+    for dirX in $SUBDIRS ; do $
+      mkdir -p $$dirX/build ; $
+      (cd $$dirX ; sh ./configure.sh $${OPTS:-}) ; $
+    done
+
+build help: custom_cmd
+  DESC = Targets available -- ninja -t targets [OPTS=$${OPTS:-}]
+  COMMAND = $
+    for dirX in $SUBDIRS ; do env OPTS=$${OPTS:-} ninja -C $$dirX/build help ; done ; $
+	echo "##### Top-level multiproject: $parent #####" ; $
+	echo "       ninja [SUBDIRS="$SUBDIRS"] configure [OPTS=??]" ; $
+	echo "Usage: ninja [SUBDIRS="$SUBDIRS"] [target]"
+
+build clean: custom_cmd
+  DESC = Clean build artifacts -- ninja -t clean [OPTS=$${OPTS:-}]
+  COMMAND = $
+    for dirX in $SUBDIRS ; do env OPTS=$${OPTS:-} ninja -C $$dirX/build clean ; done ; $
+	rm -fr core* *~ .*~ build/* *.log */*.log
+
+build all: custom_cmd
+  DESC = Compile
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build all ; done
+
+build testCompile: custom_cmd
+  DESC = Compile test(s)
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build testCompile ; done
+  pool = console
+  restat = 1
+
+build test: custom_cmd
+  DESC = Run test(s) [TOPTS=$${TOPTS:-}]
+  COMMAND = for dirX in $SUBDIRS ; do env TOPTS=$${TOPTS:-} ninja -C $$dirX/build test ; done
+  pool = console
+  restat = 1
+
+build uninstall: custom_cmd
+  DESC = Uninstall artifacts
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build uninstall ; done
+  pool = console
+  restat = 1
+
+build install: custom_cmd
+  DESC = Install artifacts
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build install ; done
+  pool = console
+  restat = 1
+
+build build/${distdir}: custom_cmd
+  DESC = Set up archive files
+  COMMAND = $
+    mkdir -p build/${distdir} ; cp -f exclude.lst build/ ; $
+    #-zip -9 -q --exclude @exclude.lst -r - . | unzip -od build/${distdir} - ; $
+    tar --format=posix --dereference --exclude-from=exclude.lst -cf - . | tar -xpf - -C build/${distdir}
+
+build package: custom_cmd || build/${distdir}
+  DESC = Archive project(s) source code [FMTS=$${FMTS:-tar.gz,zip}]
+  COMMAND = $
+    for fmt in `echo ${FMTS} | tr ',' ' '` ; do $
+      case $$fmt in $
+        7z) echo "### build/${distdir}.7z ###" ; $
+          rm -f build/${distdir}.7z ; $
+          (cd build ; 7za a -t7z -mx=9 ${distdir}.7z ${distdir}) ;; $
+        zip) echo "### build/${distdir}.zip ###" ; $
+          rm -f build/${distdir}.zip ; $
+          (cd build ; zip -9 -q -r ${distdir}.zip ${distdir}) ;; $
+        *) tarext=`echo $$fmt | grep -e '^tar$$' -e '^tar.xz$$' -e '^tar.zst$$' -e '^tar.bz2$$' || echo tar.gz` ; $
+          echo "### build/${distdir}.$$tarext ###" ; $
+          rm -f build/${distdir}.$$tarext ; $
+          (cd build ; tar --posix -L -caf ${distdir}.$$tarext ${distdir}) ;; $
+      esac $
+    done ; $
+    rm -r build/${distdir} ; $
+    for dirX in $SUBDIRS ; do env FMTS=${FMTS} ninja -C $$dirX/build package ; done
+  pool = console
+  restat = 1
+
+build doc: custom_cmd
+  DESC = Generate documentation(s)
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build doc ; done
+  pool = console
+  restat = 1
+
+build lint: custom_cmd
+  DESC = Lint check(s)
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build lint ; done
+  pool = console
+  restat = 1
+
+build report: custom_cmd
+  DESC = Report code coverage(s)
+  COMMAND = for dirX in $SUBDIRS ; do ninja -C $$dirX/build report ; done
+  pool = console
+  restat = 1
+
+build run: custom_cmd
+  DESC = Run main [ARGS=$${ARGS:-}]
+  COMMAND = env ARGS=$${ARGS:-} ninja -C app/build run
+  pool = console
+  restat = 1
+
+build debug: custom_cmd
+  DESC = Debug main [ARGS=$${ARGS:-}]
+  COMMAND = env ARGS=$${ARGS:-} ninja -C app/build debug
+  pool = console
+  restat = 1
+
+build valgrind: custom_cmd
+  DESC = Valgrind main
+  COMMAND = ninja -C app/build valgrind
+  pool = console
+  restat = 1
+
+default help

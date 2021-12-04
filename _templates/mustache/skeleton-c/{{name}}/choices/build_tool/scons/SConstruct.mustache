@@ -24,15 +24,13 @@ except NameError:
 			'0', allowed_values=['0', '1']),
 		EnumVariable('BUILDTEST', 'Build test with all', 'ON', 
 			allowed_values=['ON', 'OFF']),
-		ListVariable('TOOLS', 'Archive distribution tools', ['tar', 'zip'],
-			['tar', 'zip']),
-		EnumVariable('TARSUFFIX', 'Tar archive suffix (for compression)', 'tar.gz',
-			allowed_values=['tar.gz', 'tar.bz2', 'tar.xz', 'tar.7z', 'tar'])
+		ListVariable('FMTS', 'Archive distribution formats', ['tar.gz', 'zip'],
+			names=['tar', 'tar.gz', 'tar.bz2', 'tar.xz', 'tar.zst', '7z', 'zip'])
 	)
 	ctx_default = Environment(ENV=os.environ, tools=["default", "packaging"],
 		CC=ARGUMENTS.get("CC", "clang"), CXX=ARGUMENTS.get("CXX", "clang++"),
-		ARFLAGS="rvcs", LINKFLAGS=["-Wl,-rpath,'$$ORIGIN/'"],
-		prefix=GetOption('prefix'), variables=vars, 
+		ARFLAGS="rvcs", LINKFLAGS=[("-Wl,-rpath,'$$ORIGIN/:{}/lib'").format(
+		GetOption('prefix'))], prefix=GetOption('prefix'), variables=vars, 
 		LD_LIBRARY_PATH=os.environ.get('LD_LIBRARY_PATH', '.'))
 	ctx_default.SConsignFile("build/.sconsign")
 	ctx_default.Decider("MD5-timestamp")
@@ -61,11 +59,11 @@ ctx.ParseConfig("pkg-config --cflags --libs libpcre glib-2.0{{#executable}} log4
 #libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
 #	Glob("build/src/**/*.c"), SHLIBVERSION=version)
 ##libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
-##	Glob("build/src/**/*.c") + Glob("build/*.s"), SHLIBVERSION=version)
+##	Glob("build/src/**/*.c") + Glob("build/src/**/*.s"), SHLIBVERSION=version)
 #libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
 #	Glob("build/src/**/*.c"))
 ##libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
-##	Glob("build/src/**/*.c") + Glob("build/*.s"))
+##	Glob("build/src/**/*.c") + Glob("build/src/**/*.s"))
 #ctx.Default([copy_rsrc, config_pcfile, libdyn, libstat])
 {{/executable}}
 {{^executable}}
@@ -75,11 +73,11 @@ config_pcfile = ctx.Command("#build/lib/pkgconfig/{}.pc".format(proj_name),
 libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
 	Glob("build/src/**/*.c"), SHLIBVERSION=version)
 #libdyn = ctx.SharedLibrary("#build/lib/" + proj_name, 
-#	Glob("build/src/**/*.c") + Glob("build/*.s"), SHLIBVERSION=version)
+#	Glob("build/src/**/*.c") + Glob("build/src/**/*.s"), SHLIBVERSION=version)
 libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
 	Glob("build/src/**/*.c"))
 #libstat = ctx.StaticLibrary("#build/lib/" + proj_name, 
-#	Glob("build/src/**/*.c") + Glob("build/*.s"))
+#	Glob("build/src/**/*.c") + Glob("build/src/**/*.s"))
 ctx.Default([copy_rsrc, config_pcfile, libdyn, libstat])
 {{/executable}}
 #ctx.Alias('install', ctx.InstallVersionedLib(ctx['prefix'] + "/lib",
@@ -87,12 +85,13 @@ ctx.Default([copy_rsrc, config_pcfile, libdyn, libstat])
 #ctx.Alias("install", ctx.Install(ctx['prefix'] + "/lib", source=[libstat]))
 ctx.Alias("install", ctx.Command("install_files", Glob("include") + 
 	Glob("#build/lib") + Glob("#build/share") + Glob("#build/bin"),
-	action = "-cp -fR $SOURCES {}/".format(ctx['prefix'])))
+	action = "-cp -fR $SOURCES {0}/ ; sh -xc \"pkgconf --with-path={0}/lib/pkgconfig --list-all | grep {1}\"".format(ctx['prefix'], proj_name)))
 
 uninstallfiles = Glob("{}/lib/pkgconfig/{}.pc".format(ctx['prefix'], 
 	proj_name)) + Glob("{}/lib/lib*{}*.*".format(ctx['prefix'], proj_name)) + \
 	Glob("{}/share/doc/{}".format(ctx['prefix'], proj_name)) + \
-	Glob("{}/bin/*{}*".format(ctx['prefix'], proj_name))
+	Glob("{}/bin/*{}*".format(ctx['prefix'], proj_name)) + \
+	list(map(lambda x: "{}/{}".format(ctx['prefix'], x), Glob("include/**/*".format())))
 ctx.Alias("uninstall", ctx.Command("uninstall_files", uninstallfiles,
 	action = "-rm -ir $SOURCES"))
 
@@ -120,11 +119,19 @@ package = ctx.Package(NAME=proj_name, VERSION=version, #PACKAGETYPE="src_zip",
 ctx.AddPreAction(package, pre_dist)
 ctx.AddPostAction(package, post_dist)
 
-dist_tar = ctx.Tar("build/{}.{}".format(distdir, ctx['TARSUFFIX']), distdir)
+dist_tar = ctx.Tar("build/{}.{}".format(distdir, 'tar'), distdir)
+dist_tarbz2 = ctx.Tar("build/{}.{}".format(distdir, 'tar.bz2'), distdir)
+dist_targz = ctx.Tar("build/{}.{}".format(distdir, 'tar.gz'), distdir)
+dist_tarxz = ctx.Tar("build/{}.{}".format(distdir, 'tar.xz'), distdir)
+dist_tarzst = ctx.Tar("build/{}.{}".format(distdir, 'tar.zst'), distdir)
 dist_zip = ctx.Zip("build/{}.zip".format(distdir), distdir)
 ctx.Alias("dist", [ctx.Command("pre_dist", [], pre_dist)] + 
-	([dist_tar] if "tar" in ctx['TOOLS'] else []) + 
-	([dist_zip] if "zip" in ctx['TOOLS'] else []) + 
+	([dist_tar] if 'tar' in ctx['FMTS'] else []) + 
+	([dist_tarbz2] if 'tar.bz2' in ctx['FMTS'] else []) + 
+	([dist_targz] if 'tar.gz' in ctx['FMTS'] else []) + 
+	([dist_tarxz] if 'tar.xz' in ctx['FMTS'] else []) + 
+	([dist_tarzst] if 'tar.zst' in ctx['FMTS'] else []) + 
+	([dist_zip] if 'zip' in ctx['FMTS'] else []) + 
 	[ctx.Command("post_dist", [], post_dist)])
 
 if "ON" == ctx['BUILDTEST']:
@@ -133,7 +140,7 @@ if "ON" == ctx['BUILDTEST']:
 		LINKFLAGS=["-L{}/build/lib".format(topdir){{^executable}},
 		"-l" + proj_name{{/executable}}])
 	ctx_t.ParseConfig("pkg-config --cflags --libs {{testfrwk}}{{^testfrwk}}check{{/testfrwk}}")
-	ts_main = ctx_t.Program("build/ts_main", Glob("build/tests/*.c"))
+	ts_main = ctx_t.Program("build/tests/ts_main", Glob("build/tests/*.c"))
 	ctx_t.Default([ts_main])
 
 #lintopts = "--enable=information --report-progress --quiet --force " + \
@@ -174,8 +181,8 @@ def PhonyTargets(ctx=None, **kw):
 
 PhonyTargets(ctx,
 	print_vars=ctx.Action(EnvVariables(ctx)),
-	#classicffi_asm_s="cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o build/classic_asm.s {0}/src/${parent}/classic_asm.c.bak ; cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o build/classic_f90.s {0}/src/${parent}/classic_f90.f90.bak".format(subdir),
-	test="-cd {}/build ; LD_LIBRARY_PATH={}:{}/build/lib ./ts_main {}".format(
+	#classicffi_asm_s="cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o build/src/${parent}/classic_asm.s {0}/src/${parent}/classic_asm.c.bak ; cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o build/src/${parent}/classic_f90.s {0}/src/${parent}/classic_f90.f90.bak".format(subdir),
+	test="-cd {}/build ; LD_LIBRARY_PATH={}:{}/build/lib tests/ts_main {}".format(
 		subdir, ctx['LD_LIBRARY_PATH'], topdir, ARGUMENTS.get("TOPTS", "")),
 	doc=("-doxygen {}/Doxyfile_*.txt ; rm -fr {}/{}/build/share/doc/{}/html ;" +
 		" mv -f {}/html {}/{}/build/share/doc/{}/html").format(subdir, topdir,

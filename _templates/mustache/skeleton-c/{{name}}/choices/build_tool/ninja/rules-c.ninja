@@ -1,0 +1,73 @@
+# C rules ninja script.
+
+# Rule for running custom commands.
+rule custom_cmd
+  description = $DESC
+  command = $COMMAND
+
+# Rule for compiling C file(s).
+rule compile_c
+  depfile = .depend
+  deps = gcc
+  description = Building C object(s) ($${in:-$${INPUT}}: .c -> .c.o)
+  command = $
+    for inX in $${in:-${INPUT}} ; do $
+      $CC $CPPFLAGS $CFLAGS -c -o $$inX.o ../$$inX ; $
+    done
+
+# Rule for producing Asm file.
+rule generate_s
+  description = Generating Asm file ($in: [.c|.f90] -> .s[.intel])
+  command = $
+    $CC $CPPFLAGS $CFLAGS -S -masm=att $in -o $out ; $
+    $CC $CPPFLAGS $CFLAGS -S -masm=intel $in -o $out.intel
+
+# Rule for compiling Asm file(s).
+rule compile_s
+  description = Building Asm object(s) ($${in:-$${INPUT}}: .s -> .s.o)
+  depfile = .depend
+  deps = gcc
+  command = $
+    for inX in $${in:-${INPUT}} ; do $
+      $CC $CPPFLAGS $CFLAGS -c -o $$inX.o ../$$inX ; $
+    done
+
+# Rule for archiving objects to static library
+rule archive_o
+  description = Linking static library ($${in:-${INPUT}} -> $out)
+  command = $AR $ARFLAGS $out $${in:-${INPUT}}
+  restat = $RESTAT
+
+# Rule for linking objects
+rule link_o
+  description = Linking objects ($${in:-${INPUT}} -> $out)
+  command = $CC $LDFLAGS $${in:-${INPUT}} -o $out $LDLIBS
+  restat = $RESTAT
+
+# Rule for compiling/linking C source
+rule link_c
+  description = Compiling/linking C source ($${in:-$${INPUT}} -> $out)
+  command = $
+    $CC $CPPFLAGS $CFLAGS $LDFLAGS $${in:-${INPUT}} -o $out $LDLIBS
+  restat = $RESTAT
+
+# Rule for linking shared library (dynamic)
+rule link_shlib
+  description = Linking shared library ($${in:-${INPUT}} -> $out)
+  command = $
+    if [ "dylib" = "${sosuffix}" ] ; then $
+      $CC $LDFLAGS -dynamiclib -undefined suppress -flat_namespace -Wl,-install_name,@rpath/$$(echo $$(basename ${out}) | sed 's|dylib|${somajor}.dylib|'),-current_version,${version},-compatibility_version,${somajor}.${sominor}.0 $${in:-${INPUT}} -o $$(echo ${out} | sed 's|dylib|${version}.dylib|') $LDLIBS ; $
+    else $
+      $CC $LDFLAGS -shared -Wl,-soname,$$(basename ${out}).${somajor} $${in:-${INPUT}} -o ${out}.${version} $LDLIBS ; $
+    fi
+
+#rule symlink_shlib
+#  description = Create shared library symlinks
+#  command = $
+#    if [ "dylib" = "${sosuffix}" ] ; then $
+#      ln -sf $$(basename $$(echo $in | sed 's|dylib|${somajor}.dylib|')) $in ; $
+#      ln -sf $$(basename $$(echo $in | sed 's|dylib|${version}.dylib|')) $$(echo $in | sed 's|dylib|${somajor}.dylib|') ; $
+#    else $
+#      ln -sf $$(basename ${in}.${somajor}) $in ; $
+#      ln -sf $$(basename ${in}.${version}) ${in}.${somajor} ; $
+#    fi
