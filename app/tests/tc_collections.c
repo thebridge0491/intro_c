@@ -221,7 +221,7 @@ START_TEST (test_ghashtbls) {
     ck_assert_msg(g_hash_table_replace(gstrchar_htbl, key_new, val_char), 
         "replace");
     ck_assert_msg(NULL != g_hash_table_lookup(gstrchar_htbl, "ltr 2"), "find");
-    ck_assert_msg(g_hash_table_contains(gstrchar_htbl,"ltr 2"),"contains");
+    ck_assert_msg(g_hash_table_contains(gstrchar_htbl, "ltr 2"), "contains");
     ck_assert_msg(g_hash_table_remove(gstrchar_htbl, "ltr 2"), "remove");
     char *exp_str = "(ltr 02 => Z),(ltr 0 => k),(ltr 1 => Z),"
         "(ltr 3 => p),(ltr 4 => u),";
@@ -234,7 +234,8 @@ START_TEST (test_ghashtbls) {
     */
     g_hash_table_foreach(gstrchar_htbl, (GHFunc)strcharptr_kv_to_str_void, 
         &chptr_alloc);
-    ck_assert_msg(0 == strcmp(exp_str, chptr_alloc), "foreach");
+    ck_assert_msg(0 == strcmp(exp_str, chptr_alloc), "foreach -- exp: %s ; res: %s",
+    	exp_str, chptr_alloc);
     
     g_hash_table_destroy(gstrchar_htbl);
 } END_TEST
@@ -247,7 +248,7 @@ START_TEST (test_gtrees) {
     
     ck_assert_msg(NULL != (gstrchar_tmp = g_tree_new_full(
         (GCompareDataFunc)g_ascii_strcasecmp, NULL, (GDestroyNotify)g_free, 
-        (GDestroyNotify)g_free), "make-tree"));
+        (GDestroyNotify)g_free)), "make-tree");
     g_tree_destroy(gstrchar_tmp);
     ck_assert_msg(0 == g_tree_height(gstrchar_tree), "height");
     for (int i = 0; len_chars > i; ++i) {

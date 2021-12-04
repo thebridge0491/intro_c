@@ -1,13 +1,13 @@
 # Multi-package project CMakeLists.txt script.
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.16)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0011 NEW)
-project(intro_c VERSION 0.1.0 LANGUAGES NONE) # LANGUAGES ASM Fortran C CXX
+project(intro_c VERSION 0.1.0 LANGUAGES NONE) # LANGUAGES C[XX] OBJC[XX] ASM Fortran
 
 set(PROJECT_URL bitbucket.org/thebridge0491/${PROJECT_NAME})
 
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
-	message(FATAL_ERROR "Error: cd build ; [DEFS] cmake [OPTS] ..")
+	message(FATAL_ERROR "Error: [DEFS] cmake -B <dir> [OPTS]")
 endif()
 
 set(prefix ${CMAKE_INSTALL_PREFIX})
@@ -25,7 +25,9 @@ if(NOT DEFINED CPACK_SOURCE_GENERATOR)
 	set(CPACK_SOURCE_GENERATOR TGZ ZIP)
 endif()
 set(CPACK_SOURCE_PACKAGE_FILE_NAME ${PROJECT_NAME}-${PROJECT_VERSION})
-set(CPACK_SOURCE_IGNORE_FILES "\\\\.svn/;\\\\.git/;\\\\.hg/;\\\\.DS_Store;\\\\.log;.*~;\\\\.s$;\\\\.so$;temp/;build/;dist/")
+include(CPack RESULT_VARIABLE CPACK_FOUND)
+set(CPack_CMake_INCLUDED 0)
+list(APPEND CPACK_SOURCE_IGNORE_FILES build/ dist/ temp/ \\\\.log$ \\\\.s$ \\\\.so$ .*~ \\\\.DS_Store$)
 include(CPack RESULT_VARIABLE CPACK_FOUND)
 
 if(NOT TARGET uninstall)

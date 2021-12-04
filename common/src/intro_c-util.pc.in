@@ -4,7 +4,7 @@ includedir=${prefix}/include
 libdir=${exec_prefix}/lib
 
 Name: Intro_c-Util
-Description: Utilites sub-package for C Intro examples project.
+Description: Utilities sub-package for C Intro examples project.
 URL: https://bitbucket.org/thebridge0491/intro_c
 Version: 0.1.0
 Conflicts: 
