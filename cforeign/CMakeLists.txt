@@ -41,8 +41,8 @@ set(proj_artifacts ${PROJECT_NAME} ${PROJECT_NAME}_stat)
 
 file(TOUCH ${PROJECT_BINARY_DIR}/src/${PROJECT_PARENT}/classic_asm.s ${PROJECT_BINARY_DIR}/src/${PROJECT_PARENT}/classic_f90.s)
 add_custom_target(classicffi_asm_s ALL
-	${CMAKE_C_COMPILER} -Iinclude -I${PROJECT_SOURCE_DIR}/src -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o src/${PROJECT_PARENT}/classic_asm.s ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_asm.c.bak
-	COMMAND ${CMAKE_C_COMPILER} -Iinclude -I${PROJECT_SOURCE_DIR}/src -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o src/${PROJECT_PARENT}/classic_f90.s ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_f90.f90.bak
+	${CMAKE_C_COMPILER} -Iinclude -I${PROJECT_SOURCE_DIR}/src -Wall -pedantic -std=c99 -S -masm=att -fPIC -x c -o src/${PROJECT_PARENT}/classic_asm.s ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_asm.c.bak
+	COMMAND ${CMAKE_C_COMPILER} -Iinclude -I${PROJECT_SOURCE_DIR}/src -Wall -pedantic -std=f2003 -S -masm=att -fPIC -x f95 -o src/${PROJECT_PARENT}/classic_f90.s ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_f90.f90.bak
 	SOURCES ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_asm.c.bak ${PROJECT_SOURCE_DIR}/src/${PROJECT_PARENT}/classic_f90.f90.bak
 )
 
@@ -50,7 +50,7 @@ add_custom_target(classicffi_asm_s ALL
 add_library(objffi OBJECT ${PROJECT_BINARY_DIR}/src/${PROJECT_PARENT}/classic_asm.s ${PROJECT_BINARY_DIR}/src/${PROJECT_PARENT}/classic_f90.s src/${PROJECT_PARENT}/classic_c.c)
 set_target_properties(objffi PROPERTIES POSITION_INDEPENDENT_CODE 1)
 # target_compile_definitions(objffi PRIVATE " ")
-target_compile_options(objffi PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${GLIB_CFLAGS})
+target_compile_options(objffi PRIVATE -Wall -pedantic -std=c99 -I${PROJECT_SOURCE_DIR}/src ${GLIB_CFLAGS})
 target_include_directories(objffi PRIVATE include)
 target_link_libraries(objffi PUBLIC PRIVATE ${GLIB_LDFLAGS})
 
@@ -71,7 +71,7 @@ if(BUILD_TESTING)
 	set_target_properties(ts_main_${PROJECT_NAME} PROPERTIES
 		EXCLUDE_FROM_ALL true RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests OUTPUT_NAME ts_main)
 	# target_compile_definitions(ts_main_${PROJECT_NAME} PRIVATE " ")
-	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
+	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
 	target_include_directories(ts_main_${PROJECT_NAME} PRIVATE include)
 	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC PRIVATE ${TESTFRWK_LDFLAGS} -L${prefix}/lib -l${PROJECT_PARENT}-util -L${PROJECT_BINARY_DIR}/lib -l${PROJECT_NAME}) # -l:lib${PROJECT_NAME}.a
 endif(BUILD_TESTING)

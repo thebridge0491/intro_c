@@ -44,7 +44,7 @@ set(proj_artifacts ${PROJECT_NAME} ${PROJECT_NAME}_stat)
 add_library(objapi OBJECT src/${PROJECT_PARENT}/classic.c src/${PROJECT_PARENT}/sequenceops.c src/${PROJECT_PARENT}/classic_puzzles.c)
 set_target_properties(objapi PROPERTIES POSITION_INDEPENDENT_CODE 1)
 # target_compile_definitions(objapi PRIVATE " ")
-target_compile_options(objapi PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${GLIB_CFLAGS} ${LOG4C_CFLAGS})
+target_compile_options(objapi PRIVATE -Wall -pedantic -std=c99 -I${PROJECT_SOURCE_DIR}/src ${GLIB_CFLAGS} ${LOG4C_CFLAGS})
 target_include_directories(objapi PRIVATE include)
 target_link_libraries(objapi PUBLIC PRIVATE ${GLIB_LDFLAGS} ${LOG4C_LDFLAGS})
 
@@ -65,7 +65,7 @@ if(BUILD_TESTING)
 	set_target_properties(ts_main_${PROJECT_NAME} PROPERTIES
 		EXCLUDE_FROM_ALL true RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests OUTPUT_NAME ts_main)
 	# target_compile_definitions(ts_main_${PROJECT_NAME} PRIVATE " ")
-	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
+	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
 	target_include_directories(ts_main_${PROJECT_NAME} PRIVATE include ${prefix}/include)
 	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC ${LOG4C_LDFLAGS} PRIVATE ${TESTFRWK_LDFLAGS} -L${prefix}/lib -l${PROJECT_PARENT}-util -L${PROJECT_BINARY_DIR}/lib -l${PROJECT_NAME} -lm) # -l:lib${PROJECT_NAME}.a
 endif(BUILD_TESTING)

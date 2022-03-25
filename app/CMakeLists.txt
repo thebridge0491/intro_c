@@ -52,7 +52,7 @@ set(proj_artifacts ${PROJECT_NAME} )
 add_library(objlib OBJECT src/${PROJECT_PARENT}/intro.c)
 set_target_properties(objlib PROPERTIES POSITION_INDEPENDENT_CODE 1)
 # target_compile_definitions(objlib PRIVATE " ")
-target_compile_options(objlib PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS})
+target_compile_options(objlib PRIVATE -Wall -pedantic -std=c99 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS})
 target_include_directories(objlib PRIVATE include)
 target_link_libraries(objlib PUBLIC PRIVATE ${PCRE_LDFLAGS} ${GLIB_LDFLAGS})
 
@@ -70,7 +70,7 @@ add_executable(${PROJECT_NAME} src/${PROJECT_PARENT}/intro.c src/${PROJECT_PAREN
 set_target_properties(${PROJECT_NAME} PROPERTIES EXCLUDE_FROM_ALL false
 	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 # target_compile_definitions(${PROJECT_NAME} PRIVATE " ")
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS} ${LOG4C_CFLAGS} ${YAML_CFLAGS} ${YAJL_CFLAGS} ${JSONC_CFLAGS} -I${prefix}/include)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS} ${LOG4C_CFLAGS} ${YAML_CFLAGS} ${YAJL_CFLAGS} ${JSONC_CFLAGS} -I${prefix}/include)
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} PUBLIC PRIVATE ${PCRE_LDFLAGS} ${GLIB_LDFLAGS} ${LOG4C_LDFLAGS} ${YAML_LDFLAGS} ${YAJL_LDFLAGS} ${JSONC_LDFLAGS} -lm -L${prefix}/lib -l${PROJECT_PARENT}-util -l${PROJECT_PARENT}-practice) # -L${PROJECT_BINARY_DIR} -l${PROJECT_NAME})
 
@@ -80,7 +80,7 @@ if(BUILD_TESTING)
 	set_target_properties(ts_main_${PROJECT_NAME} PROPERTIES
 		EXCLUDE_FROM_ALL true RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests OUTPUT_NAME ts_main)
 	# target_compile_definitions(ts_main_${PROJECT_NAME} PRIVATE " ")
-	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
+	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS} -I${prefix}/include)
 	target_include_directories(ts_main_${PROJECT_NAME} PRIVATE include)
 	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC PRIVATE ${TESTFRWK_LDFLAGS} ${GLIB_LDFLAGS} -L${prefix}/lib -l${PROJECT_PARENT}-util) # -L${PROJECT_BINARY_DIR}/lib -l${PROJECT_NAME}) # -l:lib${PROJECT_NAME}.a
 endif(BUILD_TESTING)

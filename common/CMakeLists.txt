@@ -44,7 +44,7 @@ set(proj_artifacts ${PROJECT_NAME} ${PROJECT_NAME}_stat)
 add_library(objlib OBJECT src/${PROJECT_PARENT}/util.c)
 set_target_properties(objlib PROPERTIES POSITION_INDEPENDENT_CODE 1)
 # target_compile_definitions(objlib PRIVATE " ")
-target_compile_options(objlib PRIVATE -Wall -pedantic -std=c99 -m64 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS})
+target_compile_options(objlib PRIVATE -Wall -pedantic -std=c99 -I${PROJECT_SOURCE_DIR}/src ${PCRE_CFLAGS} ${GLIB_CFLAGS})
 target_include_directories(objlib PRIVATE include)
 target_link_libraries(objlib PUBLIC PRIVATE ${PCRE_LDFLAGS} ${GLIB_LDFLAGS})
 
@@ -65,7 +65,7 @@ if(BUILD_TESTING)
 	set_target_properties(ts_main_${PROJECT_NAME} PROPERTIES
 		EXCLUDE_FROM_ALL true RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/tests OUTPUT_NAME ts_main)
 	# target_compile_definitions(ts_main_${PROJECT_NAME} PRIVATE " ")
-	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 -m64 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS})
+	target_compile_options(ts_main_${PROJECT_NAME} PRIVATE -Wall -pedantic -std=c99 ${TESTFRWK_CFLAGS} ${GLIB_CFLAGS})
 	target_include_directories(ts_main_${PROJECT_NAME} PRIVATE include)
 	target_link_libraries(ts_main_${PROJECT_NAME} PUBLIC PRIVATE ${TESTFRWK_LDFLAGS} -L${PROJECT_BINARY_DIR}/lib -l${PROJECT_NAME}) # -l:lib${PROJECT_NAME}.a
 endif(BUILD_TESTING)
