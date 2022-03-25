@@ -181,7 +181,7 @@ def PhonyTargets(ctx=None, **kw):
 
 PhonyTargets(ctx,
 	print_vars=ctx.Action(EnvVariables(ctx)),
-	#classicffi_asm_s="cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o build/src/${parent}/classic_asm.s {0}/src/${parent}/classic_asm.c.bak ; cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o build/src/${parent}/classic_f90.s {0}/src/${parent}/classic_f90.f90.bak".format(subdir),
+	#classicffi_asm_s="cc -Iinclude -Isrc -Wall -pedantic -std=c99 -S -masm=att -fPIC -x c -o build/src/${parent}/classic_asm.s {0}/src/${parent}/classic_asm.c.bak ; cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -S -masm=att -fPIC -x f95 -o build/src/${parent}/classic_f90.s {0}/src/${parent}/classic_f90.f90.bak".format(subdir),
 	test="-cd {}/build ; LD_LIBRARY_PATH={}:{}/build/lib tests/ts_main {}".format(
 		subdir, ctx['LD_LIBRARY_PATH'], topdir, ARGUMENTS.get("TOPTS", "")),
 	doc=("-doxygen {}/Doxyfile_*.txt ; rm -fr {}/{}/build/share/doc/{}/html ;" +

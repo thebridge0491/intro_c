@@ -21,7 +21,7 @@ require "../rakefile-rules-c.rb"
 
 libs_depns = 'libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}'
 VARS.cppflags = "#{ENV['CPPFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{libs_depns}`"
-VARS.cflags = "#{ENV['CFLAGS']} -Wall -pedantic -std=c99 -m64 `#{PKG_CONFIG} --cflags-only-other #{libs_depns}`"
+VARS.cflags = "#{ENV['CFLAGS']} -Wall -pedantic -std=c99 `#{PKG_CONFIG} --cflags-only-other #{libs_depns}`"
 VARS.asflags = "#{ENV['ASFLAGS']} -Iinclude -I../src `#{PKG_CONFIG} --cflags-only-I #{libs_depns}`"
 VARS.arflags = 'rvcs'
 VARS.ldflags = "#{ENV['LDFLAGS']} -Wl,-rpath,'$ORIGIN/:#{PREFIX}/lib' -Llib `#{PKG_CONFIG} --libs-only-L #{libs_depns}`"
@@ -101,8 +101,8 @@ end
 
 #task :classicffi_asm_s => ["../src/#{VARS.parent}/classic_asm.c.bak",
 #    "../src/#{VARS.parent}/classic_f90.f90.bak"] do |t|
-#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o src/#{VARS.parent}/classic_asm.s ../src/#{VARS.parent}/classic_asm.c.bak || true"
-#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o src/#{VARS.parent}/classic_f90.s ../src/#{VARS.parent}/classic_f90.f90.bak || true"
+#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=c99 -S -masm=att -fPIC -x c -o src/#{VARS.parent}/classic_asm.s ../src/#{VARS.parent}/classic_asm.c.bak || true"
+#   sh "#{CC} -Iinclude -Isrc -Wall -pedantic -std=f2003 -S -masm=att -fPIC -x f95 -o src/#{VARS.parent}/classic_f90.s ../src/#{VARS.parent}/classic_f90.f90.bak || true"
 #end
 
 desc "Default target: #{RAKE} help"

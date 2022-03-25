@@ -1,5 +1,5 @@
 // to convert to asm:
-// $(CC) -Iinclude -Isrc -std=c99 -m64 -fPIC -S -masm=att -x c -o classic_asm.s classic_asm.c.bak
+// $(CC) -Iinclude -Isrc -std=c99 -fPIC -S -masm=att -x c -o classic_asm.s classic_asm.c.bak
 static unsigned long fact_asm_iter(const unsigned int n, const unsigned long acc) {
     return n < 1 ? acc : fact_asm_iter(n - 1, acc * n);
 }

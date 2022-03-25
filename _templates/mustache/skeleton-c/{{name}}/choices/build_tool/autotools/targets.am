@@ -1,7 +1,7 @@
 # Targets automake script.
 AM_CPPFLAGS = -Iinclude -I$(srcdir)/include -I$(srcdir)/src
 AM_LDFLAGS = -Wl,-rpath,'$$ORIGIN/:$(DESTDIR)$(libdir)' -L.libs
-AM_CFLAGS = -Wall -pedantic -std=c99 -m64
+AM_CFLAGS = -Wall -pedantic -std=c99
 ARFLAGS = rvcs
 
 if !DARWIN

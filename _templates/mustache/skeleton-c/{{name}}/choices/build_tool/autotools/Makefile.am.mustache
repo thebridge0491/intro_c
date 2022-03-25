@@ -54,7 +54,7 @@ valgrind : $(PACKAGE_TARNAME)$(EXEEXT)
 {{/executable}}
 
 #classicffi_asm_s : src/$(PACKAGE_PARENT)/classic_asm.c.bak src/$(PACKAGE_PARENT)/classic_f90.f90.bak
-#	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC \
+#	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=c99 -S -masm=att -fPIC \
 #		-x c -o src/$(PACKAGE_PARENT)/classic_asm.s src/${PACKAGE_PARENT}/classic_asm.c.bak
-#	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC \
+#	-$(CC) -Iinclude -Isrc -Wall -pedantic -std=f2003 -S -masm=att -fPIC \
 #		-x f95 -o src/$(PACKAGE_PAARENT)/classic_f90.s src/${PACKAGE_PARENT}/classic_f90.f90.bak

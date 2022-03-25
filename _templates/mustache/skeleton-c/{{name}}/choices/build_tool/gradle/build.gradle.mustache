@@ -117,7 +117,7 @@ model {
 	}
 	binaries {
 		all {
-			cCompiler.args "-Wall -pedantic -m64 -I${projectDir}/{{#executable}}src{{/executable}}{{^executable}}include{{/executable}}".split()
+			cCompiler.args "-Wall -pedantic -I${projectDir}/{{#executable}}src{{/executable}}{{^executable}}include{{/executable}}".split()
 			linker.args "-Wl,-rpath,\'$ORIGIN/:${prefix}/lib\'".split()
 			if ('1' == DEBUG) { //buildTypes.debug {
 				cCompiler.args '-UNDEBUG -g3 -O0 --coverage'.split()
@@ -212,7 +212,7 @@ task valgrind(dependsOn: assemble) {
 
 //task classicffi_asm_s() {
 //	doLast {
-//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o ${buildDir}/src/${parent}/classic_asm.s ${projectDir}/src/**/classic_asm.c.bak", [])
-//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o ${buildDir}/src/${parent}/classic_f90.s ${projectDir}/src/**/classic_f90.f90.bak", [])
+//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=c99 -S -masm=att -fPIC -x c -o ${buildDir}/src/${parent}/classic_asm.s ${projectDir}/src/**/classic_asm.c.bak", [])
+//		wrap_cmd('', "${cCompiler.executable} -Iinclude -Isrc -Wall -pedantic -std=f2003 -S -masm=att -fPIC -x f95 -o ${buildDir}/src/${parent}/classic_f90.s ${projectDir}/src/**/classic_f90.f90.bak", [])
 //	}
 //}

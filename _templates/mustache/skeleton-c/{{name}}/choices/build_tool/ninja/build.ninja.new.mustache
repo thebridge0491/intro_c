@@ -21,7 +21,7 @@ include ../build-targets.ninja
 
 libs_depns = libpcre glib-2.0{{#executable}} log4c yaml-0.1 yajl json-c{{/executable}}
 CPPFLAGS = $${DEFAULT_CPPFLAGS} -Iinclude -I../src $$(${PKG_CONFIG} --cflags-only-I ${libs_depns})
-CFLAGS = $${DEFAULT_CFLAGS} -Wall -pedantic -std=c99 -m64 $$(${PKG_CONFIG} --cflags-only-other ${libs_depns})
+CFLAGS = $${DEFAULT_CFLAGS} -Wall -pedantic -std=c99 $$(${PKG_CONFIG} --cflags-only-other ${libs_depns})
 #ASFLAGS = $${ASFLAGS} -Iinclude $$(${PKG_CONFIG} --cflags-only-I ${libs_depns})
 ARFLAGS = rvcs
 LDFLAGS = $${DEFAULT_LDFLAGS} -Wl,-rpath,'$$ORIGIN/:${PREFIX}/lib' -L. -Llib $$(${PKG_CONFIG} --libs-only-L ${libs_depns})

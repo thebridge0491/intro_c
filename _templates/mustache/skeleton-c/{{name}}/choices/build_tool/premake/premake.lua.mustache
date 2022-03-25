@@ -53,8 +53,8 @@ solution "{{parentcap}}{{^parentcap}}Intro_c{{/parentcap}}{{joiner}}{{^joiner}}-
 				"> lib/pkgconfig/%s.pc", _OPTIONS["prefix"] or "/usr/local", 
 				project().basedir, solution().name:lower(), 
 				solution().name:lower()),
-			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=c99 -m64 -S -masm=att -fPIC -x c -o {0}/src/{2}/classic_asm.s {1}/src/{2}/classic_asm.c.bak", builddir, project().basedir, solution().parent),
-			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -m64 -S -masm=att -fPIC -x f95 -o {0}/src/{2}/classic_f90.s {1}/src/{2}/classic_f90.f90.bak", builddir, project().basedir, solution().parent)
+			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=c99 -S -masm=att -fPIC -x c -o {0}/src/{2}/classic_asm.s {1}/src/{2}/classic_asm.c.bak", builddir, project().basedir, solution().parent),
+			-- string.format("cc -Iinclude -Isrc -Wall -pedantic -std=f2003 -S -masm=att -fPIC -x f95 -o {0}/src/{2}/classic_f90.s {1}/src/{2}/classic_f90.f90.bak", builddir, project().basedir, solution().parent)
 			}
 		configuration "macosx"
 			linkoptions { string.format("-Wl,-install_name,@rpath/lib%s.%s.dylib,-current_version,%s,-compatibility_version,%s.%s.0", 
